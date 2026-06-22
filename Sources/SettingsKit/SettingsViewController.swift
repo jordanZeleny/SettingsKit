@@ -28,18 +28,18 @@ public final class SettingsViewController: UIViewController,
         let isAppIcon: Bool
         /// UserDefaults key when this row is a toggle; nil for tappable rows.
         let toggleKey: String?
-        /// Renders the title in red (destructive rows like "Reset App").
-        let isDestructive: Bool
+        /// Title text color (defaults to `.label`).
+        let titleColor: UIColor
         let action: () -> Void
 
         init(title: String, image: UIImage?, iconColor: UIColor, isAppIcon: Bool,
-             toggleKey: String?, isDestructive: Bool = false, action: @escaping () -> Void) {
+             toggleKey: String?, titleColor: UIColor = .label, action: @escaping () -> Void) {
             self.title = title
             self.image = image
             self.iconColor = iconColor
             self.isAppIcon = isAppIcon
             self.toggleKey = toggleKey
-            self.isDestructive = isDestructive
+            self.titleColor = titleColor
             self.action = action
         }
     }
@@ -128,13 +128,13 @@ public final class SettingsViewController: UIViewController,
             })
         }
 
-        // Reset App — destructive, shown in production too (own section, under
-        // cross-promo, above the debug rows).
+        // Reset App — own section, shown in production too (under cross-promo,
+        // above the debug rows). No icon; blue title.
         result.append([
-            Row(title: "Reset App",
-                image: UIImage(systemName: "arrow.counterclockwise"),
-                iconColor: .systemRed, isAppIcon: false, toggleKey: nil,
-                isDestructive: true,
+            Row(title: "Reset app & erase all content",
+                image: nil,
+                iconColor: .clear, isAppIcon: false, toggleKey: nil,
+                titleColor: .systemBlue,
                 action: { [weak self] in self?.confirmResetApp() })
         ])
 
@@ -240,14 +240,19 @@ public final class SettingsViewController: UIViewController,
         cell.backgroundColor = config.cellBackgroundColor ?? .secondarySystemGroupedBackground
         cell.accessoryType = .disclosureIndicator
 
+        // Rows without an icon (e.g. Reset App) drop the leading icon circle and
+        // pull the title back to the standard inset.
+        let hasIcon = row.image != nil
+        let titleLeading: CGFloat = hasIcon ? 64 : 20
+
         let button = UIButton()
         button.setTitle(row.title, for: .normal)
         button.titleLabel?.font = .systemFont(ofSize: 17)
-        button.setTitleColor(row.isDestructive ? .systemRed : .label, for: .normal)
+        button.setTitleColor(row.titleColor, for: .normal)
         button.contentHorizontalAlignment = .left
         cell.contentView.addSubview(button)
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 64).isActive = true
+        button.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: titleLeading).isActive = true
         button.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -40).isActive = true
         button.topAnchor.constraint(equalTo: cell.topAnchor).isActive = true
         button.bottomAnchor.constraint(equalTo: cell.bottomAnchor).isActive = true
@@ -265,6 +270,8 @@ public final class SettingsViewController: UIViewController,
         } else {
             cell.selectionStyle = .default
         }
+
+        guard hasIcon else { return cell }
 
         let addCircle = UIView()
         addCircle.backgroundColor = row.iconColor.withAlphaComponent(0.9)
@@ -388,13 +395,19 @@ public final class SettingsViewController: UIViewController,
         present(alert, animated: true)
     }
 
-    /// Wipes the app's UserDefaults domain, then intentionally crashes so the app
-    /// relaunches in a clean state.
+    /// Wipes the app's UserDefaults domain, then shows a non-dismissable alert
+    /// asking the user to fully quit the app so it relaunches in a clean state.
     private func performReset() {
         if let bundleID = Bundle.main.bundleIdentifier {
             UserDefaults.standard.removePersistentDomain(forName: bundleID)
+            UserDefaults.standard.synchronize()
         }
-        fatalError("Resetting the app: crashing intentionally to relaunch clean")
+        // No actions → the alert can't be dismissed, forcing a full quit/relaunch.
+        let alert = UIAlertController(
+            title: "Quit App to Continue",
+            message: "Your data has been erased. Fully quit the app (swipe it away from the App Switcher) and reopen it to finish resetting.",
+            preferredStyle: .alert)
+        present(alert, animated: true)
     }
 
     @objc private func toggleChanged(_ sender: UISwitch) {

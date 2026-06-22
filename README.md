@@ -68,9 +68,10 @@ navigationController?.pushViewController(settings, animated: true)
 
 - The **Upgrade To Pro** row is hidden automatically when the user is premium
   (active Superwall subscription or the `premium` UserDefaults flag).
-- **Reset App** (its own destructive section, shown in production too) confirms
-  with an explanatory alert, then wipes the app's UserDefaults domain and
-  intentionally crashes so the app relaunches clean. Premium users get a second
-  notice first, reminding them to tap Restore afterward to renew their purchase.
+- **Reset app & erase all content** (its own section, shown in production too)
+  confirms with an explanatory alert, then wipes the app's UserDefaults domain
+  and shows a non-dismissable "Quit App to Continue" alert so the user fully
+  relaunches into a clean state. Premium users get a second notice first,
+  reminding them to tap Restore afterward to renew their purchase.
 - Debug-only rows (`showDebugRows`): **Premium** and **Show Ratings** toggle the
   `premium` / `showRatingRequest` UserDefaults keys.
