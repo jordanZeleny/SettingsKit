@@ -62,7 +62,7 @@ navigationController?.pushViewController(settings, animated: true)
 | `privacyURL` | Opened in a Safari sheet | — |
 | `termsURL` | Opened in a Safari sheet | Apple standard EULA |
 | `paywallPlacement` | Superwall placement for "Upgrade To Pro" | `"settings_button"` |
-| `upgradeIconColor` | Icon tile color of the upgrade row | `.systemPurple` |
+| `upgradeIconColor` | Icon tile color of the upgrade row | baked-in magenta (no asset needed) |
 | `cellBackgroundColor` | Row background | `.secondarySystemGroupedBackground` |
 | `navigationTitle` | Nav bar title | `"Settings"` |
 | `crossPromoApps` | Bottom "more apps" section (host supplies icons) | empty (section hidden) |

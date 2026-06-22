@@ -1,5 +1,11 @@
 import UIKit
 
+extension UIColor {
+    /// Default icon color for the "Upgrade To Pro" row — a warm magenta/pink,
+    /// baked in so the package needs no asset catalog. (display-P3 0.882, 0.310, 0.020)
+    public static let settingsKitUpgrade = UIColor(displayP3Red: 0.882, green: 0.310, blue: 0.020, alpha: 1.0)
+}
+
 /// A single cross-promotion app row shown in the bottom "More Apps" section.
 public struct CrossPromoApp {
     public let title: String
@@ -59,7 +65,7 @@ public struct SettingsConfig {
         privacyURL: URL,
         termsURL: URL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!,
         paywallPlacement: String = "settings_button",
-        upgradeIconColor: UIColor = .systemPurple,
+        upgradeIconColor: UIColor = .settingsKitUpgrade,
         cellBackgroundColor: UIColor? = nil,
         navigationTitle: String = "Settings",
         crossPromoApps: [CrossPromoApp] = [],
