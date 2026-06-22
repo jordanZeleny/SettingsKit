@@ -58,6 +58,10 @@ public struct SettingsConfig {
     public var showDebugRows: Bool
     /// When set, a sidebar-toggle bar button appears on Mac Catalyst (iOS 18+).
     public var sidebarToggleHandler: (() -> Void)?
+    /// When set, tapping "Contact Us" calls this (passed the settings VC, to
+    /// present from) instead of opening the mail composer — e.g. to launch a
+    /// support chat. Default (nil) keeps the built-in email behavior.
+    public var onContactTapped: ((UIViewController) -> Void)?
 
     public init(
         appID: String,
@@ -70,7 +74,8 @@ public struct SettingsConfig {
         navigationTitle: String = "Settings",
         crossPromoApps: [CrossPromoApp] = [],
         showDebugRows: Bool? = nil,
-        sidebarToggleHandler: (() -> Void)? = nil
+        sidebarToggleHandler: (() -> Void)? = nil,
+        onContactTapped: ((UIViewController) -> Void)? = nil
     ) {
         self.appID = appID
         self.contactEmail = contactEmail
@@ -87,5 +92,6 @@ public struct SettingsConfig {
         self.showDebugRows = showDebugRows ?? false
         #endif
         self.sidebarToggleHandler = sidebarToggleHandler
+        self.onContactTapped = onContactTapped
     }
 }

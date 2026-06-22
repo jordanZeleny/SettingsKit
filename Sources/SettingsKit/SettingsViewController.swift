@@ -95,7 +95,14 @@ public final class SettingsViewController: UIViewController,
             Row(title: "Contact Us",
                 image: UIImage(systemName: "envelope.fill"),
                 iconColor: .systemGreen, isAppIcon: false, toggleKey: nil,
-                action: { [weak self] in self?.contact() })
+                action: { [weak self] in
+                    guard let self else { return }
+                    if let handler = self.config.onContactTapped {
+                        handler(self)
+                    } else {
+                        self.contact()
+                    }
+                })
         ])
 
         result.append([

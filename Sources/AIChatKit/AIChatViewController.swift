@@ -22,6 +22,10 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
     /// can call ``appendAssistantView(_:)`` to show it inline).
     public var onImageGenerated: ((UIImage) -> Void)?
 
+    /// Fired when the user taps an ``AIChatAction`` whose kind is `.custom`, with
+    /// that action's id. Use it for app-specific actions (e.g. show a paywall).
+    public var onAction: ((String) -> Void)?
+
     // MARK: - Config / AI
 
     private let config: AIChatConfig
@@ -213,6 +217,16 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
     /// Appends and persists an assistant text bubble.
     public func appendAssistantText(_ text: String) {
         appendMessage(Message(role: .assistant, text: text))
+    }
+
+    /// Renders a column of liquid-glass action buttons under the latest message.
+    /// `.copy`/`.openURL` are handled here; `.custom` ids forward to `onAction`.
+    public func appendActions(_ actions: [AIChatAction]) {
+        guard !actions.isEmpty else { return }
+        let view = ActionButtonsView(actions: actions) { [weak self] id in
+            self?.onAction?(id)
+        }
+        appendAssistantView(view)
     }
 
     /// Dismisses the chat, optionally running `completion` afterward.
