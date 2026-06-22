@@ -1,9 +1,9 @@
 # SettingsKit
 
-A drop-in UIKit settings screen shared across my apps — the "Settings" tab with
-Upgrade, Contact, Rate, Share, Privacy/Terms, a cross-promo "more apps" section,
-and debug-only toggles. Everything app-specific is injected through a
-`SettingsConfig`, so the same screen works in every app without editing source.
+A drop-in UIKit settings screen — the "Settings" tab with Upgrade, Contact,
+Rate, Share, Privacy/Terms, a cross-promo "more apps" section, a Reset App
+option, and debug-only toggles. Everything app-specific is injected through a
+`SettingsConfig`, so the same screen works in any app without editing source.
 
 ## Requirements
 
@@ -31,18 +31,13 @@ Or in a `Package.swift`:
 import SettingsKit
 
 let config = SettingsConfig(
-    appID: "6757729371",
-    contactEmail: "jordanzeleny@gmail.com",
-    privacyURL: URL(string: "https://sites.google.com/view/labelprinterprivacypolicy")!,
-    upgradeIconColor: UIColor(named: "purchaseSettings")!,
-    cellBackgroundColor: UIColor(named: "cellColor"),
+    appID: "0000000000",
+    contactEmail: "support@example.com",
+    privacyURL: URL(string: "https://example.com/privacy")!,
     crossPromoApps: [
-        CrossPromoApp(title: "Envelope Printer - Labels",
-                      image: UIImage(named: "envelope"),
-                      url: URL(string: "https://apps.apple.com/app/apple-store/id6446146267")!),
-        CrossPromoApp(title: "Photo Printer - Print to Size",
-                      image: UIImage(named: "photoprinter"),
-                      url: URL(string: "https://apps.apple.com/us/app/id6508168840")!),
+        CrossPromoApp(title: "My Other App",
+                      image: UIImage(named: "otherAppIcon"),
+                      url: URL(string: "https://apps.apple.com/app/id0000000000")!),
         // ...
     ],
     sidebarToggleHandler: { [weak self] in self?.toggleSidebar() } // optional, Catalyst
