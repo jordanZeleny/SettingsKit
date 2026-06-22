@@ -28,7 +28,20 @@ public final class SettingsViewController: UIViewController,
         let isAppIcon: Bool
         /// UserDefaults key when this row is a toggle; nil for tappable rows.
         let toggleKey: String?
+        /// Renders the title in red (destructive rows like "Reset App").
+        let isDestructive: Bool
         let action: () -> Void
+
+        init(title: String, image: UIImage?, iconColor: UIColor, isAppIcon: Bool,
+             toggleKey: String?, isDestructive: Bool = false, action: @escaping () -> Void) {
+            self.title = title
+            self.image = image
+            self.iconColor = iconColor
+            self.isAppIcon = isAppIcon
+            self.toggleKey = toggleKey
+            self.isDestructive = isDestructive
+            self.action = action
+        }
     }
 
     // MARK: State
@@ -115,6 +128,16 @@ public final class SettingsViewController: UIViewController,
             })
         }
 
+        // Reset App — destructive, shown in production too (own section, under
+        // cross-promo, above the debug rows).
+        result.append([
+            Row(title: "Reset App",
+                image: UIImage(systemName: "arrow.counterclockwise"),
+                iconColor: .systemRed, isAppIcon: false, toggleKey: nil,
+                isDestructive: true,
+                action: { [weak self] in self?.confirmResetApp() })
+        ])
+
         if config.showDebugRows {
             result.append([
                 Row(title: "Premium",
@@ -124,11 +147,7 @@ public final class SettingsViewController: UIViewController,
                 Row(title: "Show Ratings",
                     image: UIImage(systemName: "star.bubble"),
                     iconColor: .systemGray, isAppIcon: false, toggleKey: "showRatingRequest",
-                    action: {}),
-                Row(title: "Clear Data",
-                    image: UIImage(systemName: "arrow.counterclockwise"),
-                    iconColor: .systemGray, isAppIcon: false, toggleKey: nil,
-                    action: { [weak self] in self?.eraseUserDefaults() })
+                    action: {})
             ])
         }
 
@@ -221,7 +240,7 @@ public final class SettingsViewController: UIViewController,
         let button = UIButton()
         button.setTitle(row.title, for: .normal)
         button.titleLabel?.font = .systemFont(ofSize: 17)
-        button.setTitleColor(.label, for: .normal)
+        button.setTitleColor(row.isDestructive ? .systemRed : .label, for: .normal)
         button.contentHorizontalAlignment = .left
         cell.contentView.addSubview(button)
         button.translatesAutoresizingMaskIntoConstraints = false
@@ -335,21 +354,44 @@ public final class SettingsViewController: UIViewController,
         sendEmail(to: config.contactEmail)
     }
 
-    private func eraseUserDefaults() {
-        let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
-        actionSheet.addAction(UIAlertAction(title: "Clear Data", style: .destructive) { _ in
-            if let bundleID = Bundle.main.bundleIdentifier {
-                UserDefaults.standard.removePersistentDomain(forName: bundleID)
-            }
-            fatalError("Crashing the app intentionally")
+    /// Step 1: confirm the user really wants to wipe everything.
+    private func confirmResetApp() {
+        let alert = UIAlertController(
+            title: "Reset App?",
+            message: "This erases all of your data and settings and returns the app to its original state. This can't be undone.",
+            preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Reset App", style: .destructive) { [weak self] _ in
+            self?.confirmResetStep2()
         })
-        actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        if let popover = actionSheet.popoverPresentationController {
-            popover.sourceView = view
-            popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
-            popover.permittedArrowDirections = []
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
+    }
+
+    /// Step 2: premium users get an extra notice about restoring their purchase
+    /// after the reset; everyone else proceeds straight to the wipe.
+    private func confirmResetStep2() {
+        guard isPremium() else {
+            performReset()
+            return
         }
-        present(actionSheet, animated: true)
+        let alert = UIAlertController(
+            title: "Restore After Reset",
+            message: "You have a Pro purchase. After the app resets, open \"Upgrade To Pro\" and tap Restore to renew your Pro access — you won't be charged again.",
+            preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Reset App", style: .destructive) { [weak self] _ in
+            self?.performReset()
+        })
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
+    }
+
+    /// Wipes the app's UserDefaults domain, then intentionally crashes so the app
+    /// relaunches in a clean state.
+    private func performReset() {
+        if let bundleID = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: bundleID)
+        }
+        fatalError("Resetting the app: crashing intentionally to relaunch clean")
     }
 
     @objc private func toggleChanged(_ sender: UISwitch) {

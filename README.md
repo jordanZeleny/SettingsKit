@@ -66,13 +66,16 @@ navigationController?.pushViewController(settings, animated: true)
 | `cellBackgroundColor` | Row background | `.secondarySystemGroupedBackground` |
 | `navigationTitle` | Nav bar title | `"Settings"` |
 | `crossPromoApps` | Bottom "more apps" section (host supplies icons) | empty (section hidden) |
-| `showDebugRows` | Premium / Show Ratings / Clear Data rows | true on DEBUG, else false |
+| `showDebugRows` | Premium / Show Ratings toggles (debug only) | true on DEBUG, else false |
 | `sidebarToggleHandler` | Shows a Catalyst sidebar toggle when set | nil |
 
 ### Behavior notes
 
 - The **Upgrade To Pro** row is hidden automatically when the user is premium
   (active Superwall subscription or the `premium` UserDefaults flag).
-- Debug rows: **Premium** and **Show Ratings** toggle the `premium` /
-  `showRatingRequest` UserDefaults keys; **Clear Data** wipes the app's
-  UserDefaults domain, then intentionally crashes so the app relaunches clean.
+- **Reset App** (its own destructive section, shown in production too) confirms
+  with an explanatory alert, then wipes the app's UserDefaults domain and
+  intentionally crashes so the app relaunches clean. Premium users get a second
+  notice first, reminding them to tap Restore afterward to renew their purchase.
+- Debug-only rows (`showDebugRows`): **Premium** and **Show Ratings** toggle the
+  `premium` / `showRatingRequest` UserDefaults keys.
