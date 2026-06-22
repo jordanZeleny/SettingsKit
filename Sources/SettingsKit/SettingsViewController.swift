@@ -34,7 +34,6 @@ public final class SettingsViewController: UIViewController,
     // MARK: State
 
     private let config: SettingsConfig
-    private let keychain: KeychainHelper
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
     private var sections: [[Row]] = []
 
@@ -42,7 +41,6 @@ public final class SettingsViewController: UIViewController,
 
     public init(config: SettingsConfig) {
         self.config = config
-        self.keychain = KeychainHelper(service: config.keychainService)
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -339,11 +337,10 @@ public final class SettingsViewController: UIViewController,
 
     private func eraseUserDefaults() {
         let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
-        actionSheet.addAction(UIAlertAction(title: "Clear Data", style: .destructive) { [weak self] _ in
+        actionSheet.addAction(UIAlertAction(title: "Clear Data", style: .destructive) { _ in
             if let bundleID = Bundle.main.bundleIdentifier {
                 UserDefaults.standard.removePersistentDomain(forName: bundleID)
             }
-            self?.keychain.clearSaveCount()
             fatalError("Crashing the app intentionally")
         })
         actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))

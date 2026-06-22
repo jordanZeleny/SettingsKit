@@ -47,8 +47,6 @@ public struct SettingsConfig {
     public var crossPromoApps: [CrossPromoApp]
 
     // MARK: Behavior
-    /// Keychain service string used when clearing the saved-usage count.
-    public var keychainService: String
     /// When true, appends the debug-only rows (Premium / Show Ratings / Clear
     /// Data). Defaults to true on DEBUG builds, false otherwise.
     public var showDebugRows: Bool
@@ -65,7 +63,6 @@ public struct SettingsConfig {
         cellBackgroundColor: UIColor? = nil,
         navigationTitle: String = "Settings",
         crossPromoApps: [CrossPromoApp] = [],
-        keychainService: String = "com.slowmo.app",
         showDebugRows: Bool? = nil,
         sidebarToggleHandler: (() -> Void)? = nil
     ) {
@@ -78,7 +75,6 @@ public struct SettingsConfig {
         self.cellBackgroundColor = cellBackgroundColor
         self.navigationTitle = navigationTitle
         self.crossPromoApps = crossPromoApps
-        self.keychainService = keychainService
         #if DEBUG
         self.showDebugRows = showDebugRows ?? true
         #else

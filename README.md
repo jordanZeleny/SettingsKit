@@ -66,7 +66,6 @@ navigationController?.pushViewController(settings, animated: true)
 | `cellBackgroundColor` | Row background | `.secondarySystemGroupedBackground` |
 | `navigationTitle` | Nav bar title | `"Settings"` |
 | `crossPromoApps` | Bottom "more apps" section (host supplies icons) | empty (section hidden) |
-| `keychainService` | Service string cleared by "Clear Data" | `"com.slowmo.app"` |
 | `showDebugRows` | Premium / Show Ratings / Clear Data rows | true on DEBUG, else false |
 | `sidebarToggleHandler` | Shows a Catalyst sidebar toggle when set | nil |
 
@@ -76,5 +75,4 @@ navigationController?.pushViewController(settings, animated: true)
   (active Superwall subscription or the `premium` UserDefaults flag).
 - Debug rows: **Premium** and **Show Ratings** toggle the `premium` /
   `showRatingRequest` UserDefaults keys; **Clear Data** wipes the app's
-  UserDefaults domain and keychain save count, then intentionally crashes so the
-  app relaunches clean.
+  UserDefaults domain, then intentionally crashes so the app relaunches clean.
