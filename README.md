@@ -1,15 +1,24 @@
 # SettingsKit
 
-A drop-in UIKit settings screen — the "Settings" tab with Upgrade, Contact,
-Rate, Share, Privacy/Terms, a cross-promo "more apps" section, a Reset App
-option, and debug-only toggles. Everything app-specific is injected through a
-`SettingsConfig`, so the same screen works in any app without editing source.
+A shared UIKit toolkit for my apps, shipped as one package with **two products**
+you link independently:
+
+- **`SettingsKit`** — a drop-in settings screen (Upgrade, Contact, Rate, Share,
+  Privacy/Terms, a cross-promo "more apps" section, a Reset App option, and
+  debug-only toggles). Depends on SuperwallKit.
+- **`AIChatKit`** — a configurable chat-style AI assistant (iMessage-style
+  bubbles, suggestion grid, typing indicator, history) with dynamic copy and a
+  text-chat or image-generation engine. Depends on AIProxy.
+
+Each product pulls only its own dependencies, so an app that links just
+`SettingsKit` never downloads AIProxy, and vice versa. See
+[`Sources/AIChatKit`](Sources/AIChatKit) for the AIChatKit API.
 
 ## Requirements
 
-- iOS 15+ / Mac Catalyst 15+
-- [SuperwallKit](https://github.com/superwall-me/Superwall-iOS) 4.12.0+ (pulled in
-  automatically as a dependency; used for the paywall and subscription status)
+- iOS 16+ / Mac Catalyst 16+
+- `SettingsKit` → [SuperwallKit](https://github.com/superwall-me/Superwall-iOS) 4.12.0+
+- `AIChatKit` → [AIProxySwift](https://github.com/lzell/AIProxySwift) 0.150.0+
 
 ## Installation
 

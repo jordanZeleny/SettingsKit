@@ -1,6 +1,15 @@
 {
   "pins" : [
     {
+      "identity" : "aiproxyswift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/lzell/AIProxySwift",
+      "state" : {
+        "revision" : "db818f8e4db04893135a32036995486d974beb8d",
+        "version" : "0.153.0"
+      }
+    },
+    {
       "identity" : "superscript-ios-next",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/superwall/superscript-ios-next",
