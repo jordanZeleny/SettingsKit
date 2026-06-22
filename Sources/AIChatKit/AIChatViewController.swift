@@ -1,4 +1,5 @@
 import AIProxy
+import SafariServices
 import UIKit
 
 /// A configurable, chat-style AI assistant screen. Supply an ``AIChatConfig`` to
@@ -223,10 +224,23 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
     /// `.copy`/`.openURL` are handled here; `.custom` ids forward to `onAction`.
     public func appendActions(_ actions: [AIChatAction]) {
         guard !actions.isEmpty else { return }
-        let view = ActionButtonsView(actions: actions) { [weak self] id in
-            self?.onAction?(id)
-        }
+        let view = ActionButtonsView(
+            actions: actions,
+            onOpenURL: { [weak self] url in self?.openURL(url) },
+            onCustom: { [weak self] id in self?.onAction?(id) }
+        )
         appendAssistantView(view)
+    }
+
+    /// Opens web links in an in-app Safari sheet; non-web URLs (mailto, etc.) go
+    /// to the system handler.
+    private func openURL(_ url: URL) {
+        if let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
+            let safari = SFSafariViewController(url: url)
+            present(safari, animated: true)
+        } else {
+            UIApplication.shared.open(url)
+        }
     }
 
     /// Dismisses the chat, optionally running `completion` afterward.

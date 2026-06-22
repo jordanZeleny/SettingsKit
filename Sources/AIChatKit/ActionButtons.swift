@@ -27,8 +27,12 @@ public struct AIChatAction {
 final class ActionButtonsView: UIView {
 
     private let onCustom: (String) -> Void
+    private let onOpenURL: (URL) -> Void
 
-    init(actions: [AIChatAction], onCustom: @escaping (String) -> Void) {
+    init(actions: [AIChatAction],
+         onOpenURL: @escaping (URL) -> Void,
+         onCustom: @escaping (String) -> Void) {
+        self.onOpenURL = onOpenURL
         self.onCustom = onCustom
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
@@ -102,7 +106,7 @@ final class ActionButtonsView: UIView {
             }
         case .openURL(let url):
             Haptics.soft()
-            UIApplication.shared.open(url)
+            onOpenURL(url)
         case .custom(let id):
             Haptics.soft()
             onCustom(id)
