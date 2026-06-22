@@ -191,12 +191,12 @@ final class SuggestionCard: UIControl {
 
 /// 2×2 grid of suggestion cards, sized to equal widths and heights.
 final class SuggestionGridView: UIView {
-    init(items: [AIChatSuggestion], tapHandler: @escaping (String) -> Void) {
+    init(items: [AIChatSuggestion], tapHandler: @escaping (AIChatSuggestion) -> Void) {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
 
         let cards = items.map { item in
-            SuggestionCard(suggestion: item) { tapHandler(item.prompt) }
+            SuggestionCard(suggestion: item) { tapHandler(item) }
         }
         guard !cards.isEmpty else { return }
 

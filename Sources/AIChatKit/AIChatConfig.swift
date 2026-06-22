@@ -10,13 +10,19 @@ public struct AIChatSuggestion {
     public let icon: String       // SF Symbol name
     public let title: String
     public let subtitle: String
-    public let prompt: String     // dropped into the input field when tapped
+    public let prompt: String     // dropped into the input field (or sent with the photo)
+    /// When true, tapping this card opens an image source picker (camera, photo
+    /// library, or files) and sends the chosen photo to the model together with
+    /// `prompt`, instead of just dropping the prompt into the input field.
+    public let attachesImage: Bool
 
-    public init(icon: String, title: String, subtitle: String, prompt: String) {
+    public init(icon: String, title: String, subtitle: String, prompt: String,
+                attachesImage: Bool = false) {
         self.icon = icon
         self.title = title
         self.subtitle = subtitle
         self.prompt = prompt
+        self.attachesImage = attachesImage
     }
 }
 
