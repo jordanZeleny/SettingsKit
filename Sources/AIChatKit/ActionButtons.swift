@@ -60,27 +60,25 @@ final class ActionButtonsView: UIView {
     private func makeButton(for action: AIChatAction) -> UIButton {
         var config: UIButton.Configuration
         if #available(iOS 26.0, *) {
-            config = .prominentGlass()
+            config = .glass()          // plain (non-prominent) glass
         } else {
-            config = .filled()
+            config = .gray()
         }
-        // White icon + text on a blue fill (not tinted/blue-on-clear).
-        config.baseBackgroundColor = .systemBlue
-        config.baseForegroundColor = .white
+        config.baseForegroundColor = .label
         config.title = action.title
         if let symbol = action.systemImage {
             config.image = UIImage(systemName: symbol,
-                withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold))
-            config.imagePadding = 5
+                withConfiguration: UIImage.SymbolConfiguration(pointSize: 9, weight: .semibold))
+            config.imagePadding = 4
         }
         config.cornerStyle = .capsule
-        config.contentInsets = NSDirectionalEdgeInsets(top: 7, leading: 16, bottom: 7, trailing: 14)
+        config.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 13, bottom: 6, trailing: 12)
 
         let button = ActionButton(action: action)
         button.configuration = config
-        button.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+        button.titleLabel?.font = .systemFont(ofSize: 11, weight: .semibold)
         button.addTarget(self, action: #selector(tapped(_:)), for: .touchUpInside)
-        button.heightAnchor.constraint(greaterThanOrEqualToConstant: 32).isActive = true
+        button.heightAnchor.constraint(greaterThanOrEqualToConstant: 28).isActive = true
         return button
     }
 
@@ -94,12 +92,12 @@ final class ActionButtonsView: UIView {
             let original = sender.configuration?.title
             sender.configuration?.title = "Copied!"
             sender.configuration?.image = UIImage(systemName: "checkmark",
-                withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold))
+                withConfiguration: UIImage.SymbolConfiguration(pointSize: 9, weight: .semibold))
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
                 sender.configuration?.title = original
                 if let symbol = action.systemImage {
                     sender.configuration?.image = UIImage(systemName: symbol,
-                        withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold))
+                        withConfiguration: UIImage.SymbolConfiguration(pointSize: 9, weight: .semibold))
                 }
             }
         case .openURL(let url):
