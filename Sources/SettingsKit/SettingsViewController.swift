@@ -139,7 +139,7 @@ public final class SettingsViewController: UIViewController,
 
     private func setupUI() {
         navigationItem.title = config.navigationTitle
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = .systemGray6
 
         #if targetEnvironment(macCatalyst)
         if #available(iOS 18.0, *), config.sidebarToggleHandler != nil {
