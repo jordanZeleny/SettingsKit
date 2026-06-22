@@ -34,16 +34,19 @@ final class ActionButtonsView: UIView {
         translatesAutoresizingMaskIntoConstraints = false
 
         let stack = UIStackView()
-        stack.axis = .vertical
+        // Two buttons sit side by side; otherwise stack vertically.
+        stack.axis = (actions.count == 2) ? .horizontal : .vertical
         stack.spacing = 8
         stack.alignment = .leading
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
 
+        // Indent the button group slightly from the leading edge.
+        let leadingPadding: CGFloat = 8
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: topAnchor),
             stack.bottomAnchor.constraint(equalTo: bottomAnchor),
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: leadingPadding),
             stack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
         ])
 
@@ -58,26 +61,26 @@ final class ActionButtonsView: UIView {
         var config: UIButton.Configuration
         if #available(iOS 26.0, *) {
             config = .prominentGlass()
-            config.baseForegroundColor = .systemBlue
         } else {
-            config = .tinted()
-            config.baseForegroundColor = .systemBlue
-            config.baseBackgroundColor = .systemBlue
+            config = .filled()
         }
+        // White icon + text on a blue fill (not tinted/blue-on-clear).
+        config.baseBackgroundColor = .systemBlue
+        config.baseForegroundColor = .white
         config.title = action.title
         if let symbol = action.systemImage {
             config.image = UIImage(systemName: symbol,
-                withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold))
-            config.imagePadding = 6
+                withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold))
+            config.imagePadding = 5
         }
-        config.cornerStyle = .large
-        config.contentInsets = NSDirectionalEdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)
+        config.cornerStyle = .capsule
+        config.contentInsets = NSDirectionalEdgeInsets(top: 7, leading: 16, bottom: 7, trailing: 14)
 
         let button = ActionButton(action: action)
         button.configuration = config
-        button.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
+        button.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
         button.addTarget(self, action: #selector(tapped(_:)), for: .touchUpInside)
-        button.heightAnchor.constraint(greaterThanOrEqualToConstant: 40).isActive = true
+        button.heightAnchor.constraint(greaterThanOrEqualToConstant: 32).isActive = true
         return button
     }
 
@@ -91,12 +94,12 @@ final class ActionButtonsView: UIView {
             let original = sender.configuration?.title
             sender.configuration?.title = "Copied!"
             sender.configuration?.image = UIImage(systemName: "checkmark",
-                withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold))
+                withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold))
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
                 sender.configuration?.title = original
                 if let symbol = action.systemImage {
                     sender.configuration?.image = UIImage(systemName: symbol,
-                        withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold))
+                        withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold))
                 }
             }
         case .openURL(let url):
