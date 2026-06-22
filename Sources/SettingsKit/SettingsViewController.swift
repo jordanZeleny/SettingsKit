@@ -129,12 +129,11 @@ public final class SettingsViewController: UIViewController,
         }
 
         // Reset App — own section, shown in production too (under cross-promo,
-        // above the debug rows). No icon; blue title.
+        // above the debug rows).
         result.append([
-            Row(title: "Reset app & erase all content",
-                image: nil,
-                iconColor: .clear, isAppIcon: false, toggleKey: nil,
-                titleColor: .systemBlue,
+            Row(title: "Reset App",
+                image: UIImage(systemName: "arrow.counterclockwise"),
+                iconColor: .systemGray, isAppIcon: false, toggleKey: nil,
                 action: { [weak self] in self?.confirmResetApp() })
         ])
 
