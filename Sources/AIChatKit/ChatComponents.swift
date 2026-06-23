@@ -144,9 +144,13 @@ final class SuggestionCard: UIButton {
         subAttr.foregroundColor = .secondaryLabel
         config.attributedSubtitle = subAttr
 
-        config.titleAlignment = .center
-        config.contentInsets = NSDirectionalEdgeInsets(top: 14, leading: 12, bottom: 14, trailing: 12)
+        config.titleAlignment = .leading
+        config.contentInsets = NSDirectionalEdgeInsets(top: 12, leading: 14, bottom: 12, trailing: 14)
         configuration = config
+
+        // Left-align the icon/title/subtitle block (icon top-left) like before.
+        contentHorizontalAlignment = .leading
+        contentVerticalAlignment = .top
 
         addTarget(self, action: #selector(handleTap), for: .touchUpInside)
     }
