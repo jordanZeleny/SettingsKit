@@ -116,56 +116,37 @@ final class SuggestionCard: UIButton {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
 
-        // Real glass button so the tile gets the same interactive (stretchy)
-        // Liquid Glass press behavior as the action/link buttons.
+        // Real glass button driven entirely by its configuration content, so it
+        // gets the full interactive (stretchy) Liquid Glass press like the
+        // action/link buttons. Overlaying custom subviews or overriding the
+        // background corner radius defeats that, so we use the config instead.
         var config: UIButton.Configuration
         if #available(iOS 26.0, *) {
             config = .glass()
         } else {
             config = .gray()
         }
-        config.cornerStyle = .fixed
-        config.background.cornerRadius = 18
+        config.cornerStyle = .large
+        config.baseForegroundColor = .systemBlue   // icon tint
+
+        config.image = UIImage(systemName: suggestion.icon,
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold))
+        config.imagePlacement = .top
+        config.imagePadding = 8
+
+        var titleAttr = AttributedString(suggestion.title)
+        titleAttr.font = .systemFont(ofSize: 15, weight: .semibold)
+        titleAttr.foregroundColor = .label
+        config.attributedTitle = titleAttr
+
+        var subAttr = AttributedString(suggestion.subtitle)
+        subAttr.font = .systemFont(ofSize: 12)
+        subAttr.foregroundColor = .secondaryLabel
+        config.attributedSubtitle = subAttr
+
+        config.titleAlignment = .center
+        config.contentInsets = NSDirectionalEdgeInsets(top: 14, leading: 12, bottom: 14, trailing: 12)
         configuration = config
-
-        // Custom icon + title + subtitle laid over the glass button.
-        let icon = UIImageView(image: UIImage(systemName: suggestion.icon,
-            withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)))
-        icon.tintColor = .systemBlue
-        icon.contentMode = .scaleAspectFit
-        icon.translatesAutoresizingMaskIntoConstraints = false
-
-        let title = UILabel()
-        title.text = suggestion.title
-        title.font = .systemFont(ofSize: 15, weight: .semibold)
-        title.textColor = .label
-        title.translatesAutoresizingMaskIntoConstraints = false
-
-        let subtitle = UILabel()
-        subtitle.text = suggestion.subtitle
-        subtitle.font = .systemFont(ofSize: 12)
-        subtitle.textColor = .secondaryLabel
-        subtitle.numberOfLines = 2
-        subtitle.translatesAutoresizingMaskIntoConstraints = false
-
-        for v in [icon, title, subtitle] {
-            v.isUserInteractionEnabled = false
-            addSubview(v)
-        }
-
-        NSLayoutConstraint.activate([
-            icon.topAnchor.constraint(equalTo: topAnchor, constant: 12),
-            icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
-
-            title.topAnchor.constraint(equalTo: icon.bottomAnchor, constant: 8),
-            title.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
-            title.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
-
-            subtitle.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 2),
-            subtitle.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
-            subtitle.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
-            subtitle.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -12),
-        ])
 
         addTarget(self, action: #selector(handleTap), for: .touchUpInside)
     }
