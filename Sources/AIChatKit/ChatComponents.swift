@@ -118,7 +118,11 @@ final class SuggestionCard: UIControl {
 
         let glass: UIVisualEffectView
         if #available(iOS 26.0, *) {
-            glass = UIVisualEffectView(effect: UIGlassEffect())
+            // Interactive (stretchy) Liquid Glass so the tile responds to touch
+            // like the action buttons do.
+            let effect = UIGlassEffect()
+            effect.isInteractive = true
+            glass = UIVisualEffectView(effect: effect)
         } else {
             glass = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
         }
