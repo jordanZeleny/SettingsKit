@@ -108,7 +108,7 @@ final class ChatBubble: UIView {
 
 // MARK: - Suggestion cards
 
-final class SuggestionCard: UIControl {
+final class SuggestionCard: UIButton {
     private let tapHandler: () -> Void
 
     init(suggestion: AIChatSuggestion, tapHandler: @escaping () -> Void) {
@@ -116,23 +116,19 @@ final class SuggestionCard: UIControl {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
 
-        let glass: UIVisualEffectView
+        // Real glass button so the tile gets the same interactive (stretchy)
+        // Liquid Glass press behavior as the action/link buttons.
+        var config: UIButton.Configuration
         if #available(iOS 26.0, *) {
-            // Interactive (stretchy) Liquid Glass so the tile responds to touch
-            // like the action buttons do.
-            let effect = UIGlassEffect()
-            effect.isInteractive = true
-            glass = UIVisualEffectView(effect: effect)
+            config = .glass()
         } else {
-            glass = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
+            config = .gray()
         }
-        glass.isUserInteractionEnabled = false
-        glass.layer.cornerRadius = 18
-        glass.layer.cornerCurve = .continuous
-        glass.clipsToBounds = true
-        glass.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(glass)
+        config.cornerStyle = .fixed
+        config.background.cornerRadius = 18
+        configuration = config
 
+        // Custom icon + title + subtitle laid over the glass button.
         let icon = UIImageView(image: UIImage(systemName: suggestion.icon,
             withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)))
         icon.tintColor = .systemBlue
@@ -158,11 +154,6 @@ final class SuggestionCard: UIControl {
         }
 
         NSLayoutConstraint.activate([
-            glass.topAnchor.constraint(equalTo: topAnchor),
-            glass.bottomAnchor.constraint(equalTo: bottomAnchor),
-            glass.leadingAnchor.constraint(equalTo: leadingAnchor),
-            glass.trailingAnchor.constraint(equalTo: trailingAnchor),
-
             icon.topAnchor.constraint(equalTo: topAnchor, constant: 12),
             icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
 
@@ -184,12 +175,6 @@ final class SuggestionCard: UIControl {
     @objc private func handleTap() {
         Haptics.soft()
         tapHandler()
-    }
-
-    override var isHighlighted: Bool {
-        didSet {
-            UIView.animate(withDuration: 0.1) { self.alpha = self.isHighlighted ? 0.6 : 1 }
-        }
     }
 }
 
