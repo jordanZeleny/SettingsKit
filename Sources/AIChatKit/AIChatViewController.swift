@@ -65,6 +65,9 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
         sv.alwaysBounceVertical = true
         sv.keyboardDismissMode = .interactive
         sv.clipsToBounds = false
+        // Highlight controls (suggestion tiles, action buttons) immediately on
+        // touch-down instead of waiting for the scroll view to rule out a scroll.
+        sv.delaysContentTouches = false
         sv.translatesAutoresizingMaskIntoConstraints = false
         sv.contentInset.bottom = 10
         return sv
@@ -393,27 +396,24 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
 
     private func presentImageSourcePicker(prompt: String) {
         pendingImagePrompt = prompt
-        let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        let alert = UIAlertController(title: "Add a Photo",
+                                     message: "Choose where to get the image from.",
+                                     preferredStyle: .alert)
         if UIImagePickerController.isSourceTypeAvailable(.camera) {
-            sheet.addAction(UIAlertAction(title: "Take Photo", style: .default) { [weak self] _ in
+            alert.addAction(UIAlertAction(title: "Take Photo", style: .default) { [weak self] _ in
                 self?.presentCamera()
             })
         }
-        sheet.addAction(UIAlertAction(title: "Photo Library", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Photo Library", style: .default) { [weak self] _ in
             self?.presentLibrary()
         })
-        sheet.addAction(UIAlertAction(title: "Choose File", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Files", style: .default) { [weak self] _ in
             self?.presentFiles()
         })
-        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { [weak self] _ in
             self?.pendingImagePrompt = nil
         })
-        if let pop = sheet.popoverPresentationController {
-            pop.sourceView = view
-            pop.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.maxY - 80, width: 0, height: 0)
-            pop.permittedArrowDirections = []
-        }
-        present(sheet, animated: true)
+        present(alert, animated: true)
     }
 
     private func presentCamera() {
