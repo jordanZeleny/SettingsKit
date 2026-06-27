@@ -341,6 +341,9 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
     /// suggestion cards.
     private func sendImageTurn(prompt: String, image: UIImage) {
         guard !isSending else { return }
+        // Show the uploaded photo in the chat (above the prompt bubble), then send
+        // it to the model. The image itself isn't persisted with the conversation.
+        messagesStack.addArrangedSubview(ChatImageBubble(role: .user, image: image))
         appendMessage(Message(role: .user, text: prompt))
         isSending = true
         inputBar.setBusy(true)

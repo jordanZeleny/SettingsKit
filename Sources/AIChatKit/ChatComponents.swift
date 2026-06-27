@@ -106,6 +106,48 @@ final class ChatBubble: UIView {
     }
 }
 
+// MARK: - Chat image bubble
+
+/// A rounded image attachment shown inline in the chat, aligned to the sender's
+/// side (right/user, left/assistant). Used to display a photo the user uploaded
+/// alongside their message. Sized to the image's aspect ratio, capped in width.
+final class ChatImageBubble: UIView {
+    init(role: ChatRole, image: UIImage) {
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+
+        let imageView = UIImageView(image: image)
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.contentMode = .scaleAspectFill
+        imageView.clipsToBounds = true
+        imageView.layer.cornerRadius = 18
+        imageView.layer.cornerCurve = .continuous
+        addSubview(imageView)
+
+        let pointingLeft = (role == .assistant)
+        let aspect = max(image.size.height, 1) / max(image.size.width, 1)
+
+        let preferredWidth = imageView.widthAnchor.constraint(equalToConstant: 220)
+        preferredWidth.priority = .defaultHigh
+
+        NSLayoutConstraint.activate([
+            imageView.topAnchor.constraint(equalTo: topAnchor),
+            imageView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            imageView.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, multiplier: 0.6),
+            imageView.heightAnchor.constraint(equalTo: imageView.widthAnchor, multiplier: aspect),
+            preferredWidth,
+        ])
+
+        if pointingLeft {
+            imageView.leadingAnchor.constraint(equalTo: leadingAnchor).isActive = true
+        } else {
+            imageView.trailingAnchor.constraint(equalTo: trailingAnchor).isActive = true
+        }
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
+}
+
 // MARK: - Suggestion cards
 
 final class SuggestionCard: UIControl {
