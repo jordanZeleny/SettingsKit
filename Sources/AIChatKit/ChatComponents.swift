@@ -632,19 +632,23 @@ final class InputBar: UIView, UITextViewDelegate {
         }, for: .touchUpInside)
         container.addSubview(remove)
 
+        // Inset the image by half the badge so the badge can straddle the image's
+        // top-right corner (half OUTSIDE the image) while still sitting fully inside
+        // the container — touches outside the container aren't delivered, so this is
+        // what keeps the whole badge tappable.
+        let badge: CGFloat = 22
         NSLayoutConstraint.activate([
             container.widthAnchor.constraint(equalToConstant: thumbSide),
             iv.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            iv.topAnchor.constraint(equalTo: container.topAnchor, constant: 6),
-            iv.widthAnchor.constraint(equalToConstant: thumbSide - 6),
-            iv.heightAnchor.constraint(equalToConstant: thumbSide - 6),
-            // Keep the badge fully inside the thumbnail (and its container) so its
-            // whole tap area is hittable — a corner-straddling badge overflows the
-            // container bounds, where touches aren't delivered.
-            remove.trailingAnchor.constraint(equalTo: iv.trailingAnchor, constant: -2),
-            remove.topAnchor.constraint(equalTo: iv.topAnchor, constant: 2),
-            remove.widthAnchor.constraint(equalToConstant: 22),
-            remove.heightAnchor.constraint(equalToConstant: 22),
+            iv.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            iv.topAnchor.constraint(equalTo: container.topAnchor, constant: badge / 2),
+            iv.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -badge / 2),
+            iv.heightAnchor.constraint(equalTo: iv.widthAnchor),
+            // Centered on the image's top-right corner → half over the image, half off.
+            remove.centerXAnchor.constraint(equalTo: iv.trailingAnchor),
+            remove.centerYAnchor.constraint(equalTo: iv.topAnchor),
+            remove.widthAnchor.constraint(equalToConstant: badge),
+            remove.heightAnchor.constraint(equalToConstant: badge),
         ])
         return container
     }
