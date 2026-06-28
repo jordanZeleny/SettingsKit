@@ -357,6 +357,28 @@ final class TypingIndicatorView: UIView {
 
 // MARK: - Input bar
 
+/// A UITextView that turns a pasted image into an attachment instead of pasting
+/// it as text/attributed content.
+final class AttachTextView: UITextView {
+    var onPasteImage: ((UIImage) -> Void)?
+
+    override func paste(_ sender: Any?) {
+        let pb = UIPasteboard.general
+        if pb.hasImages, let image = pb.image {
+            onPasteImage?(image)
+            return
+        }
+        super.paste(sender)
+    }
+
+    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        if action == #selector(paste(_:)), UIPasteboard.general.hasImages {
+            return true
+        }
+        return super.canPerformAction(action, withSender: sender)
+    }
+}
+
 /// Glass capsule text field with a filled send button, pinned above the keyboard.
 final class InputBar: UIView, UITextViewDelegate {
 
@@ -374,28 +396,23 @@ final class InputBar: UIView, UITextViewDelegate {
         return b
     }()
 
-    private let attachmentsScroll: UIScrollView = {
-        let sv = UIScrollView()
-        sv.showsHorizontalScrollIndicator = false
-        sv.translatesAutoresizingMaskIntoConstraints = false
-        sv.isHidden = true
-        return sv
-    }()
-
+    /// Thumbnails hover at the top-left inside the field, over reserved newlines.
     private let attachmentsStack: UIStackView = {
         let s = UIStackView()
         s.axis = .horizontal
-        s.spacing = 8
+        s.spacing = 6
         s.translatesAutoresizingMaskIntoConstraints = false
+        s.isHidden = true
         return s
     }()
 
-    private var attachmentsHeight: NSLayoutConstraint!
-    private var attachmentsSpacing: NSLayoutConstraint!
     private let thumbSide: CGFloat = 52
+    /// Empty lines reserved at the top of the field so typed text sits below the
+    /// hovering image(s).
+    private let reserveNewlines = "\n\n\n"
 
-    private let textView: UITextView = {
-        let tv = UITextView()
+    private let textView: AttachTextView = {
+        let tv = AttachTextView()
         tv.font = .systemFont(ofSize: 17)
         tv.isScrollEnabled = false
         tv.backgroundColor = .clear
@@ -475,21 +492,19 @@ final class InputBar: UIView, UITextViewDelegate {
         backgroundColor = .clear
 
         textView.delegate = self
+        textView.onPasteImage = { [weak self] image in self?.addAttachment(image) }
         sendButton.addTarget(self, action: #selector(sendTapped), for: .touchUpInside)
         plusButton.configuration = plusConfiguration()
 
         textContainer.addSubview(glassBackground)
         textContainer.addSubview(textView)
         textContainer.addSubview(placeholderLabel)
-        attachmentsScroll.addSubview(attachmentsStack)
-        addSubview(attachmentsScroll)
+        textContainer.addSubview(attachmentsStack)   // overlay, on top of the text
         addSubview(plusButton)
         addSubview(textContainer)
         addSubview(sendButton)
 
         textContainerHeight = textContainer.heightAnchor.constraint(equalToConstant: textViewHeight)
-        attachmentsHeight = attachmentsScroll.heightAnchor.constraint(equalToConstant: 0)
-        attachmentsSpacing = textContainer.topAnchor.constraint(equalTo: attachmentsScroll.bottomAnchor, constant: 0)
 
         NSLayoutConstraint.activate([
             glassBackground.topAnchor.constraint(equalTo: textContainer.topAnchor),
@@ -505,16 +520,10 @@ final class InputBar: UIView, UITextViewDelegate {
             placeholderLabel.leadingAnchor.constraint(equalTo: textContainer.leadingAnchor, constant: 14),
             placeholderLabel.centerYAnchor.constraint(equalTo: textContainer.centerYAnchor),
 
-            // Attachments row, above the input row
-            attachmentsScroll.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-            attachmentsScroll.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            attachmentsScroll.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            attachmentsHeight,
-            attachmentsStack.topAnchor.constraint(equalTo: attachmentsScroll.contentLayoutGuide.topAnchor),
-            attachmentsStack.bottomAnchor.constraint(equalTo: attachmentsScroll.contentLayoutGuide.bottomAnchor),
-            attachmentsStack.leadingAnchor.constraint(equalTo: attachmentsScroll.contentLayoutGuide.leadingAnchor),
-            attachmentsStack.trailingAnchor.constraint(equalTo: attachmentsScroll.contentLayoutGuide.trailingAnchor),
-            attachmentsStack.heightAnchor.constraint(equalTo: attachmentsScroll.frameLayoutGuide.heightAnchor),
+            // Image thumbnails hover at the top-left, inside the field.
+            attachmentsStack.topAnchor.constraint(equalTo: textContainer.topAnchor, constant: 10),
+            attachmentsStack.leadingAnchor.constraint(equalTo: textContainer.leadingAnchor, constant: 14),
+            attachmentsStack.trailingAnchor.constraint(lessThanOrEqualTo: textContainer.trailingAnchor, constant: -14),
 
             // Plus (attach) button on the leading edge
             plusButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
@@ -523,8 +532,8 @@ final class InputBar: UIView, UITextViewDelegate {
             plusButton.heightAnchor.constraint(equalToConstant: 44),
 
             // Text field between the plus and send buttons
-            attachmentsSpacing,
             textContainerHeight,
+            textContainer.topAnchor.constraint(equalTo: topAnchor, constant: 8),
             textContainer.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
             textContainer.leadingAnchor.constraint(equalTo: plusButton.trailingAnchor, constant: 6),
 
@@ -560,6 +569,9 @@ final class InputBar: UIView, UITextViewDelegate {
     func addAttachment(_ image: UIImage) {
         attachments.append(image)
         rebuildAttachments()
+        textView.becomeFirstResponder()
+        let end = (textView.text as NSString).length
+        textView.selectedRange = NSRange(location: end, length: 0)
     }
 
     func clearAttachments() {
@@ -573,10 +585,23 @@ final class InputBar: UIView, UITextViewDelegate {
             attachmentsStack.addArrangedSubview(makeThumb(image: img, index: i))
         }
         let has = !attachments.isEmpty
-        attachmentsHeight.constant = has ? thumbSide + 4 : 0
-        attachmentsSpacing.constant = has ? 8 : 0
-        attachmentsScroll.isHidden = !has
+        attachmentsStack.isHidden = !has
+        updateReserveNewlines(present: has)
         updateSendEnabled()
+        textViewDidChange(textView)
+    }
+
+    /// Keeps exactly the reserved blank lines at the top of the field while images
+    /// are attached, so the hovering thumbnails don't cover typed text.
+    private func updateReserveNewlines(present: Bool) {
+        let current = textView.text ?? ""
+        if present {
+            if !current.hasPrefix(reserveNewlines) {
+                textView.text = reserveNewlines + current
+            }
+        } else if current.hasPrefix(reserveNewlines) {
+            textView.text = String(current.dropFirst(reserveNewlines.count))
+        }
     }
 
     /// A small iOS-style square thumbnail with a remove badge.
@@ -626,9 +651,12 @@ final class InputBar: UIView, UITextViewDelegate {
     func focusTextView() { textView.becomeFirstResponder() }
 
     func setText(_ text: String) {
-        textView.text = text
+        // Preserve the reserved blank lines so the text sits below any attachments.
+        textView.text = attachments.isEmpty ? text : reserveNewlines + text
         textViewDidChange(textView)
         textView.becomeFirstResponder()
+        let end = (textView.text as NSString).length
+        textView.selectedRange = NSRange(location: end, length: 0)
     }
 
     func clear() {
