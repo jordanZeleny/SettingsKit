@@ -638,8 +638,11 @@ final class InputBar: UIView, UITextViewDelegate {
             iv.topAnchor.constraint(equalTo: container.topAnchor, constant: 6),
             iv.widthAnchor.constraint(equalToConstant: thumbSide - 6),
             iv.heightAnchor.constraint(equalToConstant: thumbSide - 6),
-            remove.centerXAnchor.constraint(equalTo: iv.trailingAnchor),
-            remove.centerYAnchor.constraint(equalTo: iv.topAnchor),
+            // Keep the badge fully inside the thumbnail (and its container) so its
+            // whole tap area is hittable — a corner-straddling badge overflows the
+            // container bounds, where touches aren't delivered.
+            remove.trailingAnchor.constraint(equalTo: iv.trailingAnchor, constant: -2),
+            remove.topAnchor.constraint(equalTo: iv.topAnchor, constant: 2),
             remove.widthAnchor.constraint(equalToConstant: 22),
             remove.heightAnchor.constraint(equalToConstant: 22),
         ])
