@@ -1,9 +1,22 @@
 import Foundation
 
-/// A single chat message, stored independently of the VC's private model.
+/// A persistable action link shown under a result message (e.g. "Add to Label",
+/// "Open in Editor"). The behaviour is rebuilt from `id` (+ optional `payload`)
+/// when the conversation is restored, so the links survive reloads.
+struct ArchivedAction: Codable {
+    var title: String
+    var systemImage: String?
+    var id: String
+    var payload: String?
+}
+
+/// A single chat message, stored independently of the VC's private model. May
+/// carry an inline image and/or action links so rich results persist in history.
 struct ArchivedMessage: Codable {
     let isUser: Bool
     var text: String
+    var imageData: Data?
+    var actions: [ArchivedAction]?
 }
 
 /// One saved conversation, grouped in the history list by its day.

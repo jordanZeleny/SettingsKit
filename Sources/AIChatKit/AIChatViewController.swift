@@ -29,6 +29,11 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
     /// that action's id. Use it for app-specific actions (e.g. show a paywall).
     public var onAction: ((String) -> Void)?
 
+    /// Fired when a result-message action link is tapped, with its id plus the
+    /// message's inline image and/or payload — so the host can apply the result
+    /// (e.g. "Add to Label", "Open in Editor"). Works for restored messages too.
+    public var onResultAction: ((_ id: String, _ image: UIImage?, _ payload: String?) -> Void)?
+
     // MARK: - Config / AI
 
     private let config: AIChatConfig
@@ -39,6 +44,8 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
     struct Message: Codable {
         let role: ChatRole
         var text: String
+        var imageData: Data?
+        var actions: [ArchivedAction]?
     }
 
     private let chatStore: ChatHistoryStore
@@ -142,13 +149,15 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
             self, selector: #selector(keyboardDidShow),
             name: UIResponder.keyboardDidShowNotification, object: nil)
 
-        // Reset on every open: archive the prior in-progress session to history and
-        // start with a blank chat. (History is still browsable via the history list.)
-        if let saved = chatStore.loadCurrent(), saved.hasUserMessage {
-            chatStore.saveCurrent(saved)   // ensure it's committed to history
+        if restoresHistory,
+           let saved = chatStore.loadCurrent(),
+           Calendar.current.isDateInToday(saved.date), saved.hasUserMessage {
+            conversationID = saved.id
+            renderConversation(saved.messages)
+        } else {
+            chatStore.clearCurrent()
+            startNewConversation()
         }
-        chatStore.clearCurrent()
-        startNewConversation()
     }
 
     public override func viewWillAppear(_ animated: Bool) {
@@ -225,6 +234,21 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
     /// Appends and persists an assistant text bubble.
     public func appendAssistantText(_ text: String) {
         appendMessage(Message(role: .assistant, text: text))
+    }
+
+    /// Appends and PERSISTS an assistant "result" message — an optional caption,
+    /// an inline image (shown like a chat image, from the assistant side), and
+    /// action links beneath it. The image and links re-render on history restore;
+    /// taps forward to ``onResultAction`` with the image + payload.
+    public func appendAssistantResult(text: String? = nil,
+                                      image: UIImage? = nil,
+                                      actions: [AIChatResultAction] = []) {
+        var msg = Message(role: .assistant, text: text ?? "")
+        msg.imageData = image?.pngData()
+        msg.actions = actions.isEmpty ? nil : actions.map {
+            ArchivedAction(title: $0.title, systemImage: $0.systemImage, id: $0.id, payload: $0.payload)
+        }
+        appendMessage(msg)
     }
 
     /// Renders a column of liquid-glass action buttons under the latest message.
@@ -548,10 +572,37 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
 
     private func appendMessage(_ msg: Message) {
         messages.append(msg)
-        messagesStack.addArrangedSubview(ChatBubble(role: msg.role, text: msg.text))
+        renderMessage(msg)
         persist()
         scrollToBottom()
         DispatchQueue.main.async { [weak self] in self?.scrollToBottom() }
+    }
+
+    /// Renders a message's bubble + optional inline image + optional action links.
+    private func renderMessage(_ msg: Message) {
+        if !msg.text.isEmpty {
+            messagesStack.addArrangedSubview(ChatBubble(role: msg.role, text: msg.text))
+        }
+        let image = msg.imageData.flatMap { UIImage(data: $0) }
+        if let image {
+            messagesStack.addArrangedSubview(ChatImageBubble(role: msg.role, image: image))
+        }
+        if let actions = msg.actions, !actions.isEmpty {
+            messagesStack.addArrangedSubview(makeResultActions(actions, image: image))
+        }
+    }
+
+    private func makeResultActions(_ actions: [ArchivedAction], image: UIImage?) -> UIView {
+        let chatActions = actions.map {
+            AIChatAction(title: $0.title, systemImage: $0.systemImage, kind: .custom($0.id))
+        }
+        return ActionButtonsView(
+            actions: chatActions,
+            onOpenURL: { [weak self] url in self?.openURL(url) },
+            onCustom: { [weak self] id in
+                let payload = actions.first { $0.id == id }?.payload
+                self?.onResultAction?(id, image, payload)
+            })
     }
 
     // MARK: - Persistence & history
@@ -565,7 +616,10 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
             id: conversationID,
             title: conversationTitle(),
             date: Date(),
-            messages: messages.map { ArchivedMessage(isUser: $0.role == .user, text: $0.text) }
+            messages: messages.map {
+                ArchivedMessage(isUser: $0.role == .user, text: $0.text,
+                                imageData: $0.imageData, actions: $0.actions)
+            }
         )
     }
 
@@ -584,11 +638,12 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
     }
 
     private func renderConversation(_ saved: [ArchivedMessage]) {
-        messages = saved.map { Message(role: $0.isUser ? .user : .assistant, text: $0.text) }
-        messagesStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        for msg in messages {
-            messagesStack.addArrangedSubview(ChatBubble(role: msg.role, text: msg.text))
+        messages = saved.map {
+            Message(role: $0.isUser ? .user : .assistant, text: $0.text,
+                    imageData: $0.imageData, actions: $0.actions)
         }
+        messagesStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        for msg in messages { renderMessage(msg) }
         if !config.suggestions.isEmpty {
             let grid = makeSuggestionGrid()
             messagesStack.insertArrangedSubview(grid, at: min(1, messagesStack.arrangedSubviews.count))

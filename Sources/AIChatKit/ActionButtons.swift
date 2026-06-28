@@ -4,6 +4,22 @@ import UIKit
 /// liquid-glass button. `copy` and `openURL` are handled by AIChatKit; `custom`
 /// fires the view controller's `onAction` so the host can do app-specific work
 /// (show a paywall, run a settings function, etc.).
+/// A persistable result-message action link ("Add to Label", "Open in Editor").
+/// Unlike ``AIChatAction``, its behaviour is rebuilt from `id`/`payload` so it
+/// survives a history reload; taps forward to `AIChatViewController.onResultAction`.
+public struct AIChatResultAction {
+    public let title: String
+    public let systemImage: String?
+    public let id: String
+    public let payload: String?
+    public init(title: String, systemImage: String? = nil, id: String, payload: String? = nil) {
+        self.title = title
+        self.systemImage = systemImage
+        self.id = id
+        self.payload = payload
+    }
+}
+
 public struct AIChatAction {
     public enum Kind {
         case copy(String)       // copies the string to the pasteboard
