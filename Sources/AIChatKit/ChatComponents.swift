@@ -559,7 +559,7 @@ final class InputBar: UIView, UITextViewDelegate {
         }
         config.cornerStyle = .capsule
         config.image = UIImage(systemName: "plus",
-                               withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold))
+                               withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .regular))
         return config
     }
 
