@@ -406,10 +406,10 @@ final class InputBar: UIView, UITextViewDelegate {
         return s
     }()
 
-    private let thumbSide: CGFloat = 52
+    private let thumbSide: CGFloat = 73   // 40% larger
     /// Empty lines reserved at the top of the field so typed text sits below the
     /// hovering image(s).
-    private let reserveNewlines = "\n\n\n"
+    private let reserveNewlines = "\n\n\n\n"
 
     private let textView: AttachTextView = {
         let tv = AttachTextView()
@@ -559,7 +559,7 @@ final class InputBar: UIView, UITextViewDelegate {
         }
         config.cornerStyle = .capsule
         config.image = UIImage(systemName: "plus",
-                               withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .regular))
+                               withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .medium))
         return config
     }
 
