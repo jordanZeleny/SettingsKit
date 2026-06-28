@@ -44,9 +44,9 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
     private let chatStore: ChatHistoryStore
     private var conversationID = UUID()
     private var messages: [Message] = []
-    /// Prompt to send alongside the next picked image (set when an image-attach
-    /// suggestion is tapped).
-    private var pendingImagePrompt: String?
+    /// Prompt to preload when the next picked image arrives (set when an attach
+    /// suggestion tile opens the menu); nil for the input bar's + button.
+    private var pendingAttachPrompt: String?
     private var isSending = false
     private var typingIndicator: TypingIndicatorView?
     private var pinToBottom = true
@@ -84,7 +84,7 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
 
     private lazy var inputBar: InputBar = {
         let bar = InputBar(placeholder: config.placeholder)
-        bar.onSend = { [weak self] text in self?.handleSend(text) }
+        bar.onSend = { [weak self] text, attachments in self?.handleSend(text, attachments: attachments) }
         return bar
     }()
 
@@ -181,6 +181,7 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
         scrollView.addSubview(messagesStack)
 
         inputBar.translatesAutoresizingMaskIntoConstraints = false
+        inputBar.setAttachmentMenu(attachmentMenu(prompt: nil))
         view.addSubview(inputBar)
 
         NSLayoutConstraint.activate([
@@ -291,14 +292,16 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
     }
 
     private func makeSuggestionGrid() -> SuggestionGridView {
-        SuggestionGridView(items: config.suggestions) { [weak self] suggestion in
-            guard let self else { return }
-            if suggestion.attachesImage {
-                self.presentImageSourcePicker(prompt: suggestion.prompt)
-            } else {
-                self.inputBar.setText(suggestion.prompt)
+        SuggestionGridView(
+            items: config.suggestions,
+            menuProvider: { [weak self] suggestion in
+                guard suggestion.attachesImage else { return nil }
+                return self?.attachmentMenu(prompt: suggestion.prompt)
+            },
+            tapHandler: { [weak self] suggestion in
+                self?.inputBar.setText(suggestion.prompt)
             }
-        }
+        )
     }
 
     private func deliverAssistantMessage(_ text: String, afterTyping delay: TimeInterval,
@@ -315,19 +318,31 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
 
     // MARK: - Send
 
-    private func handleSend(_ text: String) {
+    private func handleSend(_ text: String, attachments: [UIImage] = []) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !isSending else { return }
+        guard (!trimmed.isEmpty || !attachments.isEmpty), !isSending else { return }
 
-        appendMessage(Message(role: .user, text: trimmed))
+        // Show any attached photos as image bubbles, then the text bubble.
+        for image in attachments {
+            messagesStack.addArrangedSubview(ChatImageBubble(role: .user, image: image))
+        }
+        if !trimmed.isEmpty {
+            appendMessage(Message(role: .user, text: trimmed))
+        } else {
+            // Image-only message: record it for the model + history (no text bubble).
+            messages.append(Message(role: .user, text: ""))
+            persist()
+            scrollToBottom()
+        }
         inputBar.clear()
+        inputBar.clearAttachments()
 
         isSending = true
         inputBar.setBusy(true)
         showTypingIndicator()
 
         switch config.engine {
-        case .chat:  runChatTurn()
+        case .chat:  runChatTurn(attachments: attachments)
         case .image: runImageTurn(prompt: trimmed)
         }
     }
@@ -337,26 +352,12 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
         inputBar.setBusy(false)
     }
 
-    /// Sends a chat turn that includes a photo (vision). Used by image-attach
-    /// suggestion cards.
-    private func sendImageTurn(prompt: String, image: UIImage) {
-        guard !isSending else { return }
-        // Show the uploaded photo in the chat (above the prompt bubble), then send
-        // it to the model. The image itself isn't persisted with the conversation.
-        messagesStack.addArrangedSubview(ChatImageBubble(role: .user, image: image))
-        appendMessage(Message(role: .user, text: prompt))
-        isSending = true
-        inputBar.setBusy(true)
-        showTypingIndicator()
-        runChatTurn(attachment: image)
-    }
-
-    private func runChatTurn(attachment: UIImage? = nil) {
+    private func runChatTurn(attachments: [UIImage] = []) {
         let history = messages
         Task { [weak self] in
             guard let self else { return }
             do {
-                let raw = try await self.requestChat(history: history, attachment: attachment)
+                let raw = try await self.requestChat(history: history, attachments: attachments)
                 let displayed = self.config.replyTransform(raw)
                 await MainActor.run {
                     self.hideTypingIndicator()
@@ -397,26 +398,25 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
 
     // MARK: - Image attachment (camera / library / files)
 
-    private func presentImageSourcePicker(prompt: String) {
-        pendingImagePrompt = prompt
-        let alert = UIAlertController(title: "Add a Photo",
-                                     message: "Choose where to get the image from.",
-                                     preferredStyle: .alert)
+    /// The shared Camera / Photos / Files menu used by both the input bar's +
+    /// button (prompt == nil) and the image-attach suggestion tiles (prompt set).
+    private func attachmentMenu(prompt: String?) -> UIMenu {
+        var actions: [UIAction] = []
         if UIImagePickerController.isSourceTypeAvailable(.camera) {
-            alert.addAction(UIAlertAction(title: "Take Photo", style: .default) { [weak self] _ in
+            actions.append(UIAction(title: "Camera", image: UIImage(systemName: "camera")) { [weak self] _ in
+                self?.pendingAttachPrompt = prompt
                 self?.presentCamera()
             })
         }
-        alert.addAction(UIAlertAction(title: "Photo Library", style: .default) { [weak self] _ in
+        actions.append(UIAction(title: "Photos", image: UIImage(systemName: "photo.on.rectangle")) { [weak self] _ in
+            self?.pendingAttachPrompt = prompt
             self?.presentLibrary()
         })
-        alert.addAction(UIAlertAction(title: "Files", style: .default) { [weak self] _ in
+        actions.append(UIAction(title: "Files", image: UIImage(systemName: "folder")) { [weak self] _ in
+            self?.pendingAttachPrompt = prompt
             self?.presentFiles()
         })
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { [weak self] _ in
-            self?.pendingImagePrompt = nil
-        })
-        present(alert, animated: true)
+        return UIMenu(title: "", children: actions)
     }
 
     private func presentCamera() {
@@ -443,9 +443,11 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
     }
 
     fileprivate func didPickImage(_ image: UIImage) {
-        guard let prompt = pendingImagePrompt else { return }
-        pendingImagePrompt = nil
-        sendImageTurn(prompt: prompt, image: image)
+        inputBar.addAttachment(image)
+        if let prompt = pendingAttachPrompt, !prompt.isEmpty {
+            inputBar.setText(prompt)
+        }
+        pendingAttachPrompt = nil
     }
 
     /// Encodes an image as a JPEG data URL for the model's image content part.
@@ -468,19 +470,21 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
 
     // MARK: - AI requests
 
-    private func requestChat(history: [Message], attachment: UIImage? = nil) async throws -> String {
+    private func requestChat(history: [Message], attachments: [UIImage] = []) async throws -> String {
         guard case let .chat(systemPrompt, model, reasoning, verbosity) = config.engine else { return "" }
 
         var apiMessages: [OpenAIChatCompletionRequestBody.Message] = [
             .system(content: .text(systemPrompt))
         ]
-        let attachmentURL = attachment.flatMap(Self.dataURL(for:))
+        let attachmentURLs = attachments.compactMap(Self.dataURL(for:))
         for (i, msg) in history.enumerated() {
             let isLast = (i == history.count - 1)
             switch msg.role {
             case .user:
-                if isLast, let attachmentURL {
-                    apiMessages.append(.user(content: .parts([.text(msg.text), .imageURL(attachmentURL)])))
+                if isLast, !attachmentURLs.isEmpty {
+                    apiMessages.append(.user(content: .parts(
+                        [.text(msg.text)] + attachmentURLs.map { .imageURL($0) }
+                    )))
                 } else {
                     apiMessages.append(.user(content: .text(msg.text)))
                 }
@@ -600,7 +604,7 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
         let vc = ChatHistoryViewController(conversations: chatStore.history()) { [weak self] convo in
             self?.loadConversation(convo)
         }
-        present(UINavigationController(rootViewController: vc), animated: true)
+        navigationController?.pushViewController(vc, animated: true)
     }
 
     private func loadConversation(_ convo: ChatConversation) {
@@ -660,7 +664,7 @@ extension AIChatViewController: UIImagePickerControllerDelegate, UINavigationCon
 
     public func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
         picker.dismiss(animated: true)
-        pendingImagePrompt = nil
+        pendingAttachPrompt = nil
     }
 }
 
@@ -669,7 +673,7 @@ extension AIChatViewController: PHPickerViewControllerDelegate {
         picker.dismiss(animated: true)
         guard let provider = results.first?.itemProvider,
               provider.canLoadObject(ofClass: UIImage.self) else {
-            pendingImagePrompt = nil
+            pendingAttachPrompt = nil
             return
         }
         provider.loadObject(ofClass: UIImage.self) { [weak self] object, _ in
@@ -682,17 +686,17 @@ extension AIChatViewController: PHPickerViewControllerDelegate {
 extension AIChatViewController: UIDocumentPickerDelegate {
     public func documentPicker(_ controller: UIDocumentPickerViewController,
                                didPickDocumentsAt urls: [URL]) {
-        guard let url = urls.first else { pendingImagePrompt = nil; return }
+        guard let url = urls.first else { pendingAttachPrompt = nil; return }
         let access = url.startAccessingSecurityScopedResource()
         defer { if access { url.stopAccessingSecurityScopedResource() } }
         if let data = try? Data(contentsOf: url), let image = UIImage(data: data) {
             didPickImage(image)
         } else {
-            pendingImagePrompt = nil
+            pendingAttachPrompt = nil
         }
     }
 
     public func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
-        pendingImagePrompt = nil
+        pendingAttachPrompt = nil
     }
 }

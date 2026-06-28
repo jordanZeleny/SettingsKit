@@ -153,7 +153,7 @@ final class ChatImageBubble: UIView {
 final class SuggestionCard: UIControl {
     private let tapHandler: () -> Void
 
-    init(suggestion: AIChatSuggestion, tapHandler: @escaping () -> Void) {
+    init(suggestion: AIChatSuggestion, menu: UIMenu? = nil, tapHandler: @escaping () -> Void) {
         self.tapHandler = tapHandler
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
@@ -214,7 +214,22 @@ final class SuggestionCard: UIControl {
             subtitle.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -12),
         ])
 
-        addTarget(self, action: #selector(handleTap), for: .touchUpInside)
+        if let menu {
+            // Tapping the card opens the same attach menu as the input bar's + button.
+            let overlay = UIButton(type: .system)
+            overlay.translatesAutoresizingMaskIntoConstraints = false
+            overlay.menu = menu
+            overlay.showsMenuAsPrimaryAction = true
+            addSubview(overlay)
+            NSLayoutConstraint.activate([
+                overlay.topAnchor.constraint(equalTo: topAnchor),
+                overlay.bottomAnchor.constraint(equalTo: bottomAnchor),
+                overlay.leadingAnchor.constraint(equalTo: leadingAnchor),
+                overlay.trailingAnchor.constraint(equalTo: trailingAnchor),
+            ])
+        } else {
+            addTarget(self, action: #selector(handleTap), for: .touchUpInside)
+        }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
@@ -228,12 +243,14 @@ final class SuggestionCard: UIControl {
 
 /// 2×2 grid of suggestion cards, sized to equal widths and heights.
 final class SuggestionGridView: UIView {
-    init(items: [AIChatSuggestion], tapHandler: @escaping (AIChatSuggestion) -> Void) {
+    init(items: [AIChatSuggestion],
+         menuProvider: ((AIChatSuggestion) -> UIMenu?)? = nil,
+         tapHandler: @escaping (AIChatSuggestion) -> Void) {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
 
         let cards = items.map { item in
-            SuggestionCard(suggestion: item) { tapHandler(item) }
+            SuggestionCard(suggestion: item, menu: menuProvider?(item)) { tapHandler(item) }
         }
         guard !cards.isEmpty else { return }
 
@@ -343,9 +360,39 @@ final class TypingIndicatorView: UIView {
 /// Glass capsule text field with a filled send button, pinned above the keyboard.
 final class InputBar: UIView, UITextViewDelegate {
 
-    var onSend: ((String) -> Void)?
+    var onSend: ((String, [UIImage]) -> Void)?
+
+    /// Pending image attachments shown as small squares above the field.
+    private(set) var attachments: [UIImage] = []
 
     private var isBusy = false
+
+    private let plusButton: UIButton = {
+        let b = UIButton()
+        b.translatesAutoresizingMaskIntoConstraints = false
+        b.showsMenuAsPrimaryAction = true
+        return b
+    }()
+
+    private let attachmentsScroll: UIScrollView = {
+        let sv = UIScrollView()
+        sv.showsHorizontalScrollIndicator = false
+        sv.translatesAutoresizingMaskIntoConstraints = false
+        sv.isHidden = true
+        return sv
+    }()
+
+    private let attachmentsStack: UIStackView = {
+        let s = UIStackView()
+        s.axis = .horizontal
+        s.spacing = 8
+        s.translatesAutoresizingMaskIntoConstraints = false
+        return s
+    }()
+
+    private var attachmentsHeight: NSLayoutConstraint!
+    private var attachmentsSpacing: NSLayoutConstraint!
+    private let thumbSide: CGFloat = 52
 
     private let textView: UITextView = {
         let tv = UITextView()
@@ -429,14 +476,20 @@ final class InputBar: UIView, UITextViewDelegate {
 
         textView.delegate = self
         sendButton.addTarget(self, action: #selector(sendTapped), for: .touchUpInside)
+        plusButton.configuration = plusConfiguration()
 
         textContainer.addSubview(glassBackground)
         textContainer.addSubview(textView)
         textContainer.addSubview(placeholderLabel)
+        attachmentsScroll.addSubview(attachmentsStack)
+        addSubview(attachmentsScroll)
+        addSubview(plusButton)
         addSubview(textContainer)
         addSubview(sendButton)
 
         textContainerHeight = textContainer.heightAnchor.constraint(equalToConstant: textViewHeight)
+        attachmentsHeight = attachmentsScroll.heightAnchor.constraint(equalToConstant: 0)
+        attachmentsSpacing = textContainer.topAnchor.constraint(equalTo: attachmentsScroll.bottomAnchor, constant: 0)
 
         NSLayoutConstraint.activate([
             glassBackground.topAnchor.constraint(equalTo: textContainer.topAnchor),
@@ -452,10 +505,28 @@ final class InputBar: UIView, UITextViewDelegate {
             placeholderLabel.leadingAnchor.constraint(equalTo: textContainer.leadingAnchor, constant: 14),
             placeholderLabel.centerYAnchor.constraint(equalTo: textContainer.centerYAnchor),
 
+            // Attachments row, above the input row
+            attachmentsScroll.topAnchor.constraint(equalTo: topAnchor, constant: 8),
+            attachmentsScroll.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            attachmentsScroll.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            attachmentsHeight,
+            attachmentsStack.topAnchor.constraint(equalTo: attachmentsScroll.contentLayoutGuide.topAnchor),
+            attachmentsStack.bottomAnchor.constraint(equalTo: attachmentsScroll.contentLayoutGuide.bottomAnchor),
+            attachmentsStack.leadingAnchor.constraint(equalTo: attachmentsScroll.contentLayoutGuide.leadingAnchor),
+            attachmentsStack.trailingAnchor.constraint(equalTo: attachmentsScroll.contentLayoutGuide.trailingAnchor),
+            attachmentsStack.heightAnchor.constraint(equalTo: attachmentsScroll.frameLayoutGuide.heightAnchor),
+
+            // Plus (attach) button on the leading edge
+            plusButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            plusButton.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
+            plusButton.widthAnchor.constraint(equalToConstant: 44),
+            plusButton.heightAnchor.constraint(equalToConstant: 44),
+
+            // Text field between the plus and send buttons
+            attachmentsSpacing,
             textContainerHeight,
-            textContainer.topAnchor.constraint(equalTo: topAnchor, constant: 8),
             textContainer.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
-            textContainer.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            textContainer.leadingAnchor.constraint(equalTo: plusButton.trailingAnchor, constant: 6),
 
             sendButton.leadingAnchor.constraint(equalTo: textContainer.trailingAnchor, constant: 6),
             sendButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
@@ -465,6 +536,89 @@ final class InputBar: UIView, UITextViewDelegate {
         ])
 
         updateSendEnabled()
+    }
+
+    private func plusConfiguration() -> UIButton.Configuration {
+        var config: UIButton.Configuration
+        if #available(iOS 26.0, *) {
+            config = .glass()
+            config.baseForegroundColor = .systemBlue
+        } else {
+            config = .filled()
+            config.baseBackgroundColor = .systemGray5
+            config.baseForegroundColor = .systemBlue
+        }
+        config.cornerStyle = .capsule
+        config.image = UIImage(systemName: "plus",
+                               withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold))
+        return config
+    }
+
+    /// Attaches the camera/photos/files menu shown by the plus button.
+    func setAttachmentMenu(_ menu: UIMenu) { plusButton.menu = menu }
+
+    func addAttachment(_ image: UIImage) {
+        attachments.append(image)
+        rebuildAttachments()
+    }
+
+    func clearAttachments() {
+        attachments.removeAll()
+        rebuildAttachments()
+    }
+
+    private func rebuildAttachments() {
+        attachmentsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        for (i, img) in attachments.enumerated() {
+            attachmentsStack.addArrangedSubview(makeThumb(image: img, index: i))
+        }
+        let has = !attachments.isEmpty
+        attachmentsHeight.constant = has ? thumbSide + 4 : 0
+        attachmentsSpacing.constant = has ? 8 : 0
+        attachmentsScroll.isHidden = !has
+        updateSendEnabled()
+    }
+
+    /// A small iOS-style square thumbnail with a remove badge.
+    private func makeThumb(image: UIImage, index: Int) -> UIView {
+        let container = UIView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+
+        let iv = UIImageView(image: image)
+        iv.contentMode = .scaleAspectFill
+        iv.clipsToBounds = true
+        iv.layer.cornerRadius = 12
+        iv.layer.cornerCurve = .continuous
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(iv)
+
+        let remove = UIButton()
+        var rc = UIButton.Configuration.plain()
+        rc.image = UIImage(systemName: "xmark.circle.fill",
+                           withConfiguration: UIImage.SymbolConfiguration(pointSize: 20))
+        rc.contentInsets = .zero
+        remove.configuration = rc
+        remove.tintColor = .secondaryLabel
+        remove.translatesAutoresizingMaskIntoConstraints = false
+        remove.addAction(UIAction { [weak self] _ in
+            guard let self, index < self.attachments.count else { return }
+            self.attachments.remove(at: index)
+            self.rebuildAttachments()
+        }, for: .touchUpInside)
+        container.addSubview(remove)
+
+        NSLayoutConstraint.activate([
+            container.widthAnchor.constraint(equalToConstant: thumbSide),
+            iv.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            iv.topAnchor.constraint(equalTo: container.topAnchor, constant: 6),
+            iv.widthAnchor.constraint(equalToConstant: thumbSide - 6),
+            iv.heightAnchor.constraint(equalToConstant: thumbSide - 6),
+            remove.centerXAnchor.constraint(equalTo: iv.trailingAnchor),
+            remove.centerYAnchor.constraint(equalTo: iv.topAnchor),
+            remove.widthAnchor.constraint(equalToConstant: 22),
+            remove.heightAnchor.constraint(equalToConstant: 22),
+        ])
+        return container
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
@@ -485,18 +639,19 @@ final class InputBar: UIView, UITextViewDelegate {
     func setBusy(_ busy: Bool) {
         isBusy = busy
         textView.isEditable = !busy
+        plusButton.isEnabled = !busy
         updateSendEnabled()
     }
 
     @objc private func sendTapped() {
-        onSend?(textView.text ?? "")
+        onSend?(textView.text ?? "", attachments)
     }
 
     private func updateSendEnabled() {
         let hasText = !(textView.text ?? "").isEmpty
         placeholderLabel.isHidden = hasText
 
-        let enabled = hasText && !isBusy
+        let enabled = (hasText || !attachments.isEmpty) && !isBusy
         sendButton.isEnabled = enabled
         sendButton.configuration = sendConfiguration(enabled: enabled)
     }

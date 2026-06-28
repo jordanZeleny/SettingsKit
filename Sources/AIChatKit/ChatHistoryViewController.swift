@@ -38,12 +38,9 @@ final class ChatHistoryViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "History"
-        navigationItem.leftBarButtonItem = UIBarButtonItem(
-            barButtonSystemItem: .done, target: self, action: #selector(doneTapped))
+        // Pushed onto the chat's navigation stack — the back button handles return.
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
     }
-
-    @objc private func doneTapped() { dismiss(animated: true) }
 
     override func numberOfSections(in tableView: UITableView) -> Int {
         sections.isEmpty ? 1 : sections.count
@@ -84,8 +81,7 @@ final class ChatHistoryViewController: UITableViewController {
         tableView.deselectRow(at: indexPath, animated: true)
         guard !sections.isEmpty else { return }
         let convo = sections[indexPath.section].convos[indexPath.row]
-        dismiss(animated: true) { [onSelect] in
-            onSelect(convo)
-        }
+        onSelect(convo)
+        navigationController?.popViewController(animated: true)
     }
 }
