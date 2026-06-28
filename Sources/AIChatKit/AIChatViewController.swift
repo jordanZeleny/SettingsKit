@@ -142,15 +142,13 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
             self, selector: #selector(keyboardDidShow),
             name: UIResponder.keyboardDidShowNotification, object: nil)
 
-        if restoresHistory,
-           let saved = chatStore.loadCurrent(),
-           Calendar.current.isDateInToday(saved.date), saved.hasUserMessage {
-            conversationID = saved.id
-            renderConversation(saved.messages)
-        } else {
-            chatStore.clearCurrent()
-            startNewConversation()
+        // Reset on every open: archive the prior in-progress session to history and
+        // start with a blank chat. (History is still browsable via the history list.)
+        if let saved = chatStore.loadCurrent(), saved.hasUserMessage {
+            chatStore.saveCurrent(saved)   // ensure it's committed to history
         }
+        chatStore.clearCurrent()
+        startNewConversation()
     }
 
     public override func viewWillAppear(_ animated: Bool) {
