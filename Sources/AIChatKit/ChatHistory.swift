@@ -1,5 +1,43 @@
 import Foundation
 
+/// Persists a small set of reusable facts the assistant chose to remember (names,
+/// addresses, etc.), keyed per assistant namespace so they can be recalled in later
+/// chats. Deliberately tiny and capped — only "worth reusing" info gets saved.
+final class ChatMemoryStore {
+    private let key: String
+    private let defaults = UserDefaults.standard
+    private let maxFacts = 60
+
+    init(namespace: String) { self.key = "AIChatKit.memory.\(namespace)" }
+
+    var facts: [String] {
+        defaults.stringArray(forKey: key) ?? []
+    }
+
+    /// Adds new facts (case-insensitively de-duplicated), keeping the most recent.
+    func add(_ newFacts: [String]) {
+        let cleaned = newFacts
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !cleaned.isEmpty else { return }
+        var current = facts
+        for fact in cleaned where !current.contains(where: { $0.caseInsensitiveCompare(fact) == .orderedSame }) {
+            current.append(fact)
+        }
+        if current.count > maxFacts { current = Array(current.suffix(maxFacts)) }
+        defaults.set(current, forKey: key)
+    }
+
+    func remove(at index: Int) {
+        var current = facts
+        guard current.indices.contains(index) else { return }
+        current.remove(at: index)
+        defaults.set(current, forKey: key)
+    }
+
+    func clear() { defaults.removeObject(forKey: key) }
+}
+
 /// A persistable action link shown under a result message (e.g. "Add to Label",
 /// "Open in Editor"). The behaviour is rebuilt from `id` (+ optional `payload`)
 /// when the conversation is restored, so the links survive reloads.

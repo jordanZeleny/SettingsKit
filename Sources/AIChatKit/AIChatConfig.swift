@@ -69,6 +69,9 @@ public struct AIChatConfig {
     // MARK: Behavior
     /// UserDefaults namespace so each assistant keeps its own history.
     public var historyNamespace: String
+    /// When true the assistant can save reusable facts (names, addresses, etc.) and
+    /// recall them in later chats — saving only when something is worth reusing.
+    public var remembersInfo: Bool
     /// Maps raw model output to the text shown in the assistant bubble. Apps that
     /// have the model return JSON can pull out a "reply" field here; the default
     /// strips ``` fences and shows the text as-is. (chat engine only)
@@ -83,6 +86,7 @@ public struct AIChatConfig {
         serviceURL: String,
         engine: AIChatEngine,
         historyNamespace: String,
+        remembersInfo: Bool = false,
         replyTransform: @escaping (String) -> String = AIChatConfig.defaultReplyTransform
     ) {
         self.navigationTitle = navigationTitle
@@ -93,6 +97,7 @@ public struct AIChatConfig {
         self.serviceURL = serviceURL
         self.engine = engine
         self.historyNamespace = historyNamespace
+        self.remembersInfo = remembersInfo
         self.replyTransform = replyTransform
     }
 

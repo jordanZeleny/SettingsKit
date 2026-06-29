@@ -100,9 +100,12 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
 
     // MARK: - Init
 
+    private let memoryStore: ChatMemoryStore
+
     public init(config: AIChatConfig) {
         self.config = config
         self.chatStore = ChatHistoryStore(namespace: config.historyNamespace)
+        self.memoryStore = ChatMemoryStore(namespace: config.historyNamespace)
         self.openAIService = AIProxy.openAIService(
             partialKey: config.partialKey,
             serviceURL: config.serviceURL
@@ -385,7 +388,9 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
         Task { [weak self] in
             guard let self else { return }
             do {
-                let raw = try await self.requestChat(history: history)
+                let rawWithMarkers = try await self.requestChat(history: history)
+                // Save any <<remember: …>> facts and strip the markers before display.
+                let raw = self.processMemoryMarkers(in: rawWithMarkers)
                 let displayed = self.config.replyTransform(raw)
                 await MainActor.run {
                     self.hideTypingIndicator()
@@ -505,13 +510,53 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
         return URL(string: "data:image/jpeg;base64,\(data.base64EncodedString())")
     }
 
+    // MARK: - Memory
+
+    /// Prepends any saved facts and the save-instruction to the system prompt.
+    private func systemPromptWithMemory(_ base: String) -> String {
+        guard config.remembersInfo else { return base }
+        var block = """
+
+        --- Saved info & memory ---
+        You can remember reusable details for the user across chats (names, mailing
+        addresses, phone numbers, emails, company info, and similar). Only save things
+        that are clearly worth reusing — never one-off requests, instructions, or chit-chat.
+        To save a fact, put it on its own line anywhere in your reply using EXACTLY:
+        <<remember: the fact as a short self-contained line>>
+        These markers are stripped before the user sees your reply, so also phrase your
+        normal reply naturally. Save each distinct fact on its own marker line.
+        """
+        let facts = memoryStore.facts
+        if !facts.isEmpty {
+            block += "\n\nAlready saved (reuse these when relevant; don't re-save them):\n"
+            block += facts.map { "- \($0)" }.joined(separator: "\n")
+        }
+        return base + "\n" + block
+    }
+
+    /// Extracts `<<remember: …>>` markers, saves them, and returns the reply with the
+    /// markers removed for display.
+    private func processMemoryMarkers(in raw: String) -> String {
+        guard config.remembersInfo else { return raw }
+        let pattern = "<<\\s*remember\\s*:(.*?)>>"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators, .caseInsensitive]) else { return raw }
+        let ns = raw as NSString
+        let matches = regex.matches(in: raw, range: NSRange(location: 0, length: ns.length))
+        guard !matches.isEmpty else { return raw }
+        let facts = matches.map { ns.substring(with: $0.range(at: 1)).trimmingCharacters(in: .whitespacesAndNewlines) }
+        memoryStore.add(facts)
+        // Strip the markers, then tidy up any leftover blank lines.
+        let stripped = regex.stringByReplacingMatches(in: raw, range: NSRange(location: 0, length: ns.length), withTemplate: "")
+        return stripped.replacingOccurrences(of: "\n\n\n", with: "\n\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     // MARK: - AI requests
 
     private func requestChat(history: [Message]) async throws -> String {
         guard case let .chat(systemPrompt, model, reasoning, verbosity) = config.engine else { return "" }
 
         var apiMessages: [OpenAIChatCompletionRequestBody.Message] = [
-            .system(content: .text(systemPrompt))
+            .system(content: .text(systemPromptWithMemory(systemPrompt)))
         ]
         for msg in history {
             switch msg.role {
