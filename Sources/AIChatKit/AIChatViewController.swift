@@ -236,6 +236,13 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
         appendMessage(Message(role: .assistant, text: text))
     }
 
+    /// Shows or hides the typing indicator for async work the host runs AFTER a
+    /// turn completes (e.g. generating images for a result). Appending any message
+    /// clears it automatically.
+    public func setPending(_ pending: Bool) {
+        if pending { showTypingIndicator() } else { hideTypingIndicator() }
+    }
+
     /// Appends and PERSISTS an assistant "result" message — an optional caption,
     /// an inline image (shown like a chat image, from the assistant side), and
     /// action links beneath it. The image and links re-render on history restore;
@@ -592,6 +599,7 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
     // MARK: - Chat UI updates
 
     private func appendMessage(_ msg: Message) {
+        hideTypingIndicator()   // a result/message replaces any pending indicator
         messages.append(msg)
         renderMessage(msg)
         persist()
