@@ -46,6 +46,9 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
         var text: String
         var imageData: Data?
         var actions: [ArchivedAction]?
+        /// User-attached input images (JPEG), resent with every turn so the model
+        /// keeps "seeing" them through the conversation.
+        var attachmentDatas: [Data]?
     }
 
     private let chatStore: ChatHistoryStore
@@ -351,17 +354,13 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard (!trimmed.isEmpty || !attachments.isEmpty), !isSending else { return }
 
-        // Show any attached photos as image bubbles, then the text bubble.
-        for image in attachments {
-            messagesStack.addArrangedSubview(ChatImageBubble(role: .user, image: image))
-        }
-        if !trimmed.isEmpty {
-            appendMessage(Message(role: .user, text: trimmed))
-        } else {
-            // Image-only message: record it for the model + history (no text bubble).
-            messages.append(Message(role: .user, text: ""))
-            persist()
-            scrollToBottom()
+        // Persist the attachments on the user message so they're shown (via
+        // renderMessage) and resent to the model every turn.
+        let attachmentDatas = attachments.compactMap(Self.jpegData(for:))
+        var userMessage = Message(role: .user, text: trimmed)
+        userMessage.attachmentDatas = attachmentDatas.isEmpty ? nil : attachmentDatas
+        if !trimmed.isEmpty || !attachmentDatas.isEmpty {
+            appendMessage(userMessage)
         }
         inputBar.clear()
         inputBar.clearAttachments()
@@ -386,7 +385,7 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
         Task { [weak self] in
             guard let self else { return }
             do {
-                let raw = try await self.requestChat(history: history, attachments: attachments)
+                let raw = try await self.requestChat(history: history)
                 let displayed = self.config.replyTransform(raw)
                 await MainActor.run {
                     self.hideTypingIndicator()
@@ -479,9 +478,8 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
         pendingAttachPrompt = nil
     }
 
-    /// Encodes an image as a JPEG data URL for the model's image content part.
-    private static func dataURL(for image: UIImage) -> URL? {
-        // Cap the longest side so the base64 payload stays reasonable.
+    /// Scaled JPEG bytes for an attached image — capped so the base64 stays small.
+    static func jpegData(for image: UIImage) -> Data? {
         let maxSide: CGFloat = 1280
         let scaled: UIImage
         let longest = max(image.size.width, image.size.height)
@@ -493,29 +491,40 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
         } else {
             scaled = image
         }
-        guard let data = scaled.jpegData(compressionQuality: 0.7) else { return nil }
+        return scaled.jpegData(compressionQuality: 0.7)
+    }
+
+    /// Encodes JPEG data as a data URL for the model's image content part.
+    private static func dataURL(forJPEG data: Data) -> URL? {
+        URL(string: "data:image/jpeg;base64,\(data.base64EncodedString())")
+    }
+
+    /// Encodes an image as a JPEG data URL for the model's image content part.
+    private static func dataURL(for image: UIImage) -> URL? {
+        guard let data = jpegData(for: image) else { return nil }
         return URL(string: "data:image/jpeg;base64,\(data.base64EncodedString())")
     }
 
     // MARK: - AI requests
 
-    private func requestChat(history: [Message], attachments: [UIImage] = []) async throws -> String {
+    private func requestChat(history: [Message]) async throws -> String {
         guard case let .chat(systemPrompt, model, reasoning, verbosity) = config.engine else { return "" }
 
         var apiMessages: [OpenAIChatCompletionRequestBody.Message] = [
             .system(content: .text(systemPrompt))
         ]
-        let attachmentURLs = attachments.compactMap(Self.dataURL(for:))
-        for (i, msg) in history.enumerated() {
-            let isLast = (i == history.count - 1)
+        for msg in history {
             switch msg.role {
             case .user:
-                if isLast, !attachmentURLs.isEmpty {
-                    apiMessages.append(.user(content: .parts(
-                        [.text(msg.text)] + attachmentURLs.map { .imageURL($0) }
-                    )))
-                } else {
+                // Include every image the user attached to this message (resent each
+                // turn so the model keeps seeing them), as image content parts.
+                let urls = (msg.attachmentDatas ?? []).compactMap(Self.dataURL(forJPEG:))
+                if urls.isEmpty {
                     apiMessages.append(.user(content: .text(msg.text)))
+                } else {
+                    apiMessages.append(.user(content: .parts(
+                        [.text(msg.text)] + urls.map { .imageURL($0) }
+                    )))
                 }
             case .assistant:
                 apiMessages.append(.assistant(content: .text(msg.text)))
@@ -609,6 +618,12 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
 
     /// Renders a message's bubble + optional inline image + optional action links.
     private func renderMessage(_ msg: Message) {
+        // User-attached input images appear above the text bubble.
+        for data in msg.attachmentDatas ?? [] {
+            if let img = UIImage(data: data) {
+                messagesStack.addArrangedSubview(ChatImageBubble(role: msg.role, image: img))
+            }
+        }
         if !msg.text.isEmpty {
             messagesStack.addArrangedSubview(ChatBubble(role: msg.role, text: msg.text))
         }
@@ -647,7 +662,8 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
             date: Date(),
             messages: messages.map {
                 ArchivedMessage(isUser: $0.role == .user, text: $0.text,
-                                imageData: $0.imageData, actions: $0.actions)
+                                imageData: $0.imageData, actions: $0.actions,
+                                attachmentDatas: $0.attachmentDatas)
             }
         )
     }
@@ -669,7 +685,8 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
     private func renderConversation(_ saved: [ArchivedMessage]) {
         messages = saved.map {
             Message(role: $0.isUser ? .user : .assistant, text: $0.text,
-                    imageData: $0.imageData, actions: $0.actions)
+                    imageData: $0.imageData, actions: $0.actions,
+                    attachmentDatas: $0.attachmentDatas)
         }
         messagesStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         for msg in messages { renderMessage(msg) }

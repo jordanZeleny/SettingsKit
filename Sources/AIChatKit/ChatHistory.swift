@@ -17,6 +17,7 @@ struct ArchivedMessage: Codable {
     var text: String
     var imageData: Data?
     var actions: [ArchivedAction]?
+    var attachmentDatas: [Data]?
 }
 
 /// One saved conversation, grouped in the history list by its day.
