@@ -532,6 +532,27 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
         return accumulated
     }
 
+    /// Generates a transparent PNG from `prompt` using the image model, regardless
+    /// of the configured engine — for assistants that compose generated images into
+    /// a richer result (e.g. AI label designs).
+    public func generateImage(prompt: String, size: String = "1024x1024") async throws -> UIImage {
+        let body = OpenAICreateImageRequestBody(
+            prompt: prompt,
+            background: .transparent,
+            model: .gptImage1,
+            outputFormat: .png,
+            quality: .medium,
+            size: size
+        )
+        let response = try await openAIService.createImageRequest(body: body, secondsToWait: 120)
+        guard let b64 = response.data.first?.b64JSON,
+              let data = Data(base64Encoded: b64),
+              let image = UIImage(data: data) else {
+            throw NSError(domain: "AIChatKit", code: -1)
+        }
+        return image
+    }
+
     private func requestImage(prompt: String) async throws -> UIImage {
         guard case let .image(model, size, background, quality) = config.engine else {
             throw NSError(domain: "AIChatKit", code: -2)
