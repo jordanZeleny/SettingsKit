@@ -122,6 +122,8 @@ final class ChatImageBubble: UIView {
         imageView.clipsToBounds = true
         imageView.layer.cornerRadius = 18
         imageView.layer.cornerCurve = .continuous
+        imageView.layer.borderWidth = 0.5
+        imageView.layer.borderColor = UIColor.separator.cgColor
         addSubview(imageView)
 
         let pointingLeft = (role == .assistant)
