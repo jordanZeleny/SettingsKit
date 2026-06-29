@@ -54,6 +54,18 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
     private let chatStore: ChatHistoryStore
     private var conversationID = UUID()
     private var messages: [Message] = []
+
+    /// The most recently attached user image in this conversation (decoded), so a
+    /// host can place the user's actual photo into a result instead of a generated
+    /// one. Nil if the user hasn't attached anything.
+    public var latestAttachmentImage: UIImage? {
+        for msg in messages.reversed() where msg.role == .user {
+            if let data = msg.attachmentDatas?.last, let img = UIImage(data: data) {
+                return img
+            }
+        }
+        return nil
+    }
     /// Prompt to preload when the next picked image arrives (set when an attach
     /// suggestion tile opens the menu); nil for the input bar's + button.
     private var pendingAttachPrompt: String?
