@@ -65,6 +65,16 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
     /// always reflects the current state.
     public var contextTextProvider: (() -> String)?
 
+    /// The conversation so far as plain text (e.g. to prefill a support email). Each
+    /// turn is labelled "You:" / "Assistant:"; empty messages are skipped.
+    public func transcriptText() -> String {
+        messages.compactMap { m -> String? in
+            let t = m.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !t.isEmpty else { return nil }
+            return "\(m.role == .user ? "You" : "Assistant"): \(t)"
+        }.joined(separator: "\n\n")
+    }
+
     /// The most recently attached user image in this conversation (decoded), so a
     /// host can place the user's actual photo into a result instead of a generated
     /// one. Nil if the user hasn't attached anything.
