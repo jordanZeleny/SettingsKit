@@ -60,6 +60,11 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
     /// what it produced. Evaluated fresh each turn.
     public var contextImageProvider: (() -> UIImage?)?
 
+    /// Optional live text context (e.g. which cell is selected and what each cell
+    /// holds) appended to the system prompt on EVERY turn — evaluated fresh so it
+    /// always reflects the current state.
+    public var contextTextProvider: (() -> String)?
+
     /// The most recently attached user image in this conversation (decoded), so a
     /// host can place the user's actual photo into a result instead of a generated
     /// one. Nil if the user hasn't attached anything.
@@ -572,8 +577,12 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
     private func requestChat(history: [Message]) async throws -> String {
         guard case let .chat(systemPrompt, model, reasoning, verbosity) = config.engine else { return "" }
 
+        var prompt = systemPromptWithMemory(systemPrompt)
+        if let ctx = contextTextProvider?(), !ctx.isEmpty {
+            prompt += "\n\n--- Current state (live, this turn) ---\n" + ctx
+        }
         var apiMessages: [OpenAIChatCompletionRequestBody.Message] = [
-            .system(content: .text(systemPromptWithMemory(systemPrompt)))
+            .system(content: .text(prompt))
         ]
         // Send the host's live context image (e.g. the current sheet) every turn so
         // the model can view and edit the CURRENT state, not just what it produced.
