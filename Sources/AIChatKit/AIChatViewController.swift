@@ -55,6 +55,11 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
     private var conversationID = UUID()
     private var messages: [Message] = []
 
+    /// Optional live "context" image (e.g. the current label sheet) sent to the
+    /// model on EVERY chat turn so it can see and edit the current state, not just
+    /// what it produced. Evaluated fresh each turn.
+    public var contextImageProvider: (() -> UIImage?)?
+
     /// The most recently attached user image in this conversation (decoded), so a
     /// host can place the user's actual photo into a result instead of a generated
     /// one. Nil if the user hasn't attached anything.
@@ -570,6 +575,15 @@ public final class AIChatViewController: UIViewController, UIScrollViewDelegate 
         var apiMessages: [OpenAIChatCompletionRequestBody.Message] = [
             .system(content: .text(systemPromptWithMemory(systemPrompt)))
         ]
+        // Send the host's live context image (e.g. the current sheet) every turn so
+        // the model can view and edit the CURRENT state, not just what it produced.
+        if let img = contextImageProvider?(), let data = Self.jpegData(for: img),
+           let url = Self.dataURL(forJPEG: data) {
+            apiMessages.append(.user(content: .parts([
+                .text("This image is the CURRENT state of the user's label sheet. When they ask for edits, base them on what you see here."),
+                .imageURL(url),
+            ])))
+        }
         for msg in history {
             switch msg.role {
             case .user:
