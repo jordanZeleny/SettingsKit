@@ -21,7 +21,7 @@
     {
       "identity" : "superwall-ios",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/superwall-me/Superwall-iOS",
+      "location" : "https://github.com/superwall/Superwall-iOS",
       "state" : {
         "revision" : "f738aeb3d55f326f96279fb803ebfa3cac39e3e0",
         "version" : "4.15.3"

@@ -12,7 +12,7 @@ let package = Package(
         .library(name: "AIChatKit", targets: ["AIChatKit"])
     ],
     dependencies: [
-        .package(url: "https://github.com/superwall-me/Superwall-iOS", from: "4.12.0"),
+        .package(url: "https://github.com/superwall/Superwall-iOS", from: "4.12.0"),
         .package(url: "https://github.com/lzell/AIProxySwift", from: "0.150.0")
     ],
     targets: [

@@ -17,7 +17,7 @@ Each product pulls only its own dependencies, so an app that links just
 ## Requirements
 
 - iOS 16+ / Mac Catalyst 16+
-- `SettingsKit` → [SuperwallKit](https://github.com/superwall-me/Superwall-iOS) 4.12.0+
+- `SettingsKit` → [SuperwallKit](https://github.com/superwall/Superwall-iOS) 4.12.0+
 - `AIChatKit` → [AIProxySwift](https://github.com/lzell/AIProxySwift) 0.150.0+
 
 ## Installation
